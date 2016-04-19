@@ -2,3 +2,6 @@
 bin/
 dep/
 obj/
+firmware/
+
+*.log
