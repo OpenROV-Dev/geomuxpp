@@ -44,22 +44,44 @@
 #
 #-------------------------------------------------------------------------------
 
-# --- CONFIGURATION: Definitely change this stuff!
+# ------------------------------------------------------------------------------------
+# CONFIGURATION: Definitely change this stuff!
+# ------------------------------------------------------------------------------------
+
+# --- PROJECT CONFIGURATION
+
 # PROJECT_NAME - not actually used.  but what's your project's name?
-PROJECT_NAME="geomuxpp"
+PROJECT_NAME = "geomuxpp"
+
 # PROJECT_TYPE - staticlib, dynamiclib, executable
-PROJECT_TYPE=executable
+PROJECT_TYPE = executable
+
 # PROJECT_MAIN - filename within your source directory that contains main()
-PROJECT_MAIN=main.cpp
+PROJECT_MAIN = main.cpp
+
 # TARGET - the name you want your target to have (bin/release/[whatgoeshere])
-TARGET=geomuxpp
+TARGET = geomuxpp
+
 # TEST_TARGET - the name you want your tests to have (probably test)
-TEST_TARGET=
-# STATIC_LIBS - path to any static libs you need.  you may need to make a rule
-# to generate them from subprojects.  Leave this blank if you don't have any.
-STATIC_LIBS=
-# EXTRA_INCLUDES - folders that should also be include directories (say, for
-# static libs?).  You can leave this blank if you don't have any.
+TEST_TARGET =
+
+# --- LIBRARY CONFIGURATION
+
+# LDINCLUDES - Include paths for libraries, i.e. '-I/usr/local/include'
+LDINCLUDES = -I/usr/local/include
+
+# LDLIBPATHS - Lib paths for libraries, i.e. '-L/usr/local/lib'
+LDLIBPATHS = -L/usr/local/lib
+
+# LDFLAGS - Flags to be passed to the linker. Additional options will be added later based on build target
+LDFLAGS = $(LDLIBPATHS)
+
+# LDLIBS - Which libs to link to, i.e. '-lm' or 'somelib.a'
+LDLIBS = -static -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lpthread -ldl -lz
+
+# --- INCLUDE CONFIGURATION
+
+# EXTRA_INCLUDES - Any additional files you'd like to include i.e. '-I/usr/local/include'
 EXTRA_INCLUDES=
 
 # --- DIRECTORY STRUCTURE: This structure is highly recommended, but you can
@@ -76,26 +98,33 @@ DEPENDENCY_DIR=dep
 DOCUMENTATION_DIR=doc
 COVERAGE_DIR=cov
 
-# --- COMPILATION FLAGS: Things you may want/need to configure, but I've put
-# them at sane defaults.
-CC=gcc
-CXX=g++
+# --- COMPILATION FLAGS
 
-FLAGS=-Wall -Wextra -pedantic
-INC=-I$(INCLUDE_DIR) -I$(SOURCE_DIR) $(addprefix -I,$(EXTRA_INCLUDES))
-CFLAGS=$(FLAGS) -std=c++11 -fPIC $(INC) -c
-LFLAGS=$(FLAGS)
+# Compiler to use:
+CXX=g++
+CC=$(CXX)
+
+# --- C++ compiler flags. We'll add on to these later based on build target.
+CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -fPIC
+
+# --------------------------------------------------------------------------------------------------
+
+# The options below here should only be changed if you really need to. Most options are configured above
+
+INCLUDES=-I$(INCLUDE_DIR) -I$(SOURCE_DIR) $(LDINCLUDES) $(EXTRA_INCLUDES)
+CPPFLAGS=$(CXXFLAGS) $(INCLUDES) -c
 
 # --- BUILD CONFIGURATIONS: Feel free to get creative with these if you'd like.
 # The advantage here is that you can update variables (like compile flags) based
 # on the build configuration.
 CFG=release
 ifeq ($(CFG),debug)
-FLAGS += -g -DDEBUG
+CPPFLAGS += -g -DDEBUG
 endif
 ifeq ($(CFG),coverage)
-CFLAGS += -fprofile-arcs -ftest-coverage
-LFLAGS += -fprofile-arcs -lgcov
+CPPFLAGS += -fprofile-arcs -ftest-coverage
+LDFLAGS += -fprofile-arcs 
+LDLIBS += -lgcov
 endif
 ifneq ($(CFG),debug)
 ifneq ($(CFG),release)
@@ -157,32 +186,32 @@ clean_cov:
 
 # RULE TO BUILD YOUR MAIN TARGET HERE: (you may have to edit this, but it it
 # configurable).
-$(BINARY_DIR)/$(CFG)/$(TARGET): $(OBJECTS) $(STATIC_LIBS)
+$(BINARY_DIR)/$(CFG)/$(TARGET): $(OBJECTS)
 	$(DIR_GUARD)
 ifeq ($(PROJECT_TYPE),staticlib)
 	ar rcs $@ $^
 endif
 ifeq ($(PROJECT_TYPE),dynamiclib)
-	$(CXX) -shared $(LFLAGS) $^ -o $@
+	$(CXX) -shared $(LDFLAGS) $(LDLIBS) $^ -o $@
 endif
 ifeq ($(PROJECT_TYPE),executable)
-	$(CXX) $(LFLAGS) $^ -o $@
+	$(CXX) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 endif
 
 # RULE TO BUILD YOUR TEST TARGET HERE: (it's assumed that it's an executable)
-$(BINARY_DIR)/$(CFG)/$(TEST_TARGET): $(filter-out $(OBJECT_MAIN),$(OBJECTS)) $(TEST_OBJECTS) $(STATIC_LIBS)
+$(BINARY_DIR)/$(CFG)/$(TEST_TARGET): $(filter-out $(OBJECT_MAIN),$(OBJECTS)) $(TEST_OBJECTS)
 	$(DIR_GUARD)
-	$(CXX) $(LFLAGS) $^ -o $@
+	$(CXX) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # --- Generic Compilation Command
 $(OBJECT_DIR)/$(CFG)/%.o: %.cpp
 	$(DIR_GUARD)
-	$(CXX) $(CFLAGS) $< -o $@
+	$(CXX) $(CPPFLAGS) $< -o $@
 
 # --- Automatic Dependency Generation
 $(DEPENDENCY_DIR)/%.d: %.cpp
 	$(DIR_GUARD)
-	$(CXX) $(CFLAGS) -MM $< | sed -e 's!\(.*\)\.o:!$@ $(OBJECT_DIR)/$$(CFG)/$(<D)/\1.o:!' > $@
+	$(CXX) $(CPPFLAGS) -MM $< | sed -e 's!\(.*\)\.o:!$@ $(OBJECT_DIR)/$$(CFG)/$(<D)/\1.o:!' > $@
 
 # --- Include Generated Dependencies
 ifneq "$(MAKECMDGOALS)" "clean_all"
