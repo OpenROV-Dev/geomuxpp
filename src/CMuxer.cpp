@@ -143,13 +143,32 @@ void CMuxer::Update()
 				// Find the decoder for the video stream
 				m_pInputCodecContext = m_pInputFormatContext->streams[0]->codec;
 				
-				AVCodec *pCodec = avcodec_find_decoder(m_pInputCodecContext->codec_id);
-				
+				AVCodec *pCodec = avcodec_find_decoder( m_pInputFormatContext->streams[0]->codecpar->codec_id);
 				if (pCodec == NULL) 
 				{
 					LOG( ERROR ) << "Failed to find decoder";
 					return;
-				}				
+				}	
+				
+				m_pInputCodecContext = avcodec_alloc_context3(pCodec);
+				
+				if (!m_pInputCodecContext) 
+				{
+					LOG( ERROR ) << "Could not allocate a decoding context";
+					avformat_close_input(&m_pInputFormatContext);
+					return;
+				}
+				
+				int error = avcodec_parameters_to_context(m_pInputCodecContext, m_pInputFormatContext->streams[0]->codecpar);
+				if (error < 0) 
+				{
+					LOG( ERROR ) << "Could not copy codec info from codecpar";
+					avformat_close_input(&m_pInputFormatContext);
+					avcodec_free_context(&m_pInputCodecContext);
+					return;
+				}
+				
+							
 				
 				// Open codec
 				if (avcodec_open2(m_pInputCodecContext, pCodec, NULL ) < 0) 
@@ -158,7 +177,6 @@ void CMuxer::Update()
 					return;
 				}
 				
-				// Open codec for output
 				
 				LOG( INFO ) << "Setting up output context...";
 				
@@ -169,7 +187,7 @@ void CMuxer::Update()
 					LOG( INFO ) << "Adding stream";
 					
 					AVStream *in_stream = m_pInputFormatContext->streams[i];
-					AVStream *out_stream = avformat_new_stream( m_pOutputFormatContext, NULL );
+					AVStream *out_stream = avformat_new_stream( m_pOutputFormatContext, pCodec );
 
 					if(!out_stream) 
 					{
@@ -178,30 +196,32 @@ void CMuxer::Update()
 					}
 			
 					/* copy the stream parameters to the muxer */
-					ret = avcodec_parameters_from_context(out_stream->codecpar, in_stream->codec);
+					//ret = avcodec_parameters_from_context(out_stream->codecpar, in_stream->codec);
+					ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar );
 					if (ret < 0) 
 					{
 						LOG( ERROR ) << "Could not copy the stream parameters";
 						return;
 					}
-			
-					//ret = avcodec_copy_context(out_stream->codec, in_stream->codec);
-					
-					if (ret < 0) 
-					{
-						LOG( ERROR ) << "Failed to copy context from input to output stream codec context";
-						return;
-					}
 					
 					// TODO: What was this?
-					out_stream->codec->codec_tag = 0;					
+					//out_stream->codec->codec_tag = 0;					
 					
 					if (m_pOutputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
 					{
-						out_stream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+						m_pInputCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 					}
 					
-					out_stream->time_base = out_stream->codec->time_base;
+					//out_stream->time_base = out_stream->codec->time_base;
+					
+					LOG( INFO ) << in_stream->codecpar->codec_tag;
+					LOG( INFO ) << in_stream->codecpar->format;
+					LOG( INFO ) << in_stream->codecpar->bit_rate;
+					LOG( INFO ) << in_stream->codecpar->profile;
+					LOG( INFO ) << in_stream->codecpar->level;
+					LOG( INFO ) << in_stream->codecpar->width;
+					LOG( INFO ) << in_stream->codecpar->height;
+					LOG( INFO ) << in_stream->codecpar->sample_rate;
 				}
 				
 				m_canMux = true;

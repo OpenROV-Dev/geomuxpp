@@ -22,7 +22,7 @@
         "isp0":{
             "type":"isp",
             "params":{
-                "Q_ISP_CMP_AE_MINIMUM_FRAME_RATE":15,
+                "Q_ISP_CMP_AE_MINIMUM_FRAME_RATE":30,
                 "Q_ISP_CMP_AUTOEXP_ALG":2,
                 "Q_ISP_CMP_ADAPTIVE_SATURATION_ENABLE":1,
                 "Q_ISP_CMP_BRIGHTNESS":0,
@@ -49,14 +49,14 @@
         "nvpp0":{
             "type":"nvpp",
             "parent":"vcap0",
-            "maxWidth":1920,
-            "maxHeight":1080,
+            "maxWidth":3084,
+            "maxHeight":1556,
             "cropWidth":0,
             "cropHeight":0,
             "cropOffsetX":0,
             "cropOffsetY":0,
-            "outWidth":1920,
-            "outHeight":1080,
+            "outWidth":3084,
+            "outHeight":1556,
             "inputPTSInterval":3000,
             "avcPreProc":1,
             "params":{
@@ -70,14 +70,14 @@
             "parent":"nvpp0",
             "channel":"CH1",
             "streamId":0,
-            "maxWidth":1920,
-            "maxHeight":1080,
+            "maxWidth":3084,
+            "maxHeight":1556,
             "outputBufferSize":12500000,
             "profile":"main",
             "level":31,
-            "gopSize":90,
+            "gopSize":30,
             "bitRate":10000000,
-            "maxFrameSize":147456,
+            "maxFrameSize":300456,
             "rateControl":"VBR",
             "videoEncParams":{
                 "Q_AVCENC_CMP_VPP_REGION_STAT_ENABLE":0

@@ -35,12 +35,14 @@ void CGeoCam::InitDevice( int deviceOffsetIn, video_channel_t channelIn )
 	// Initialize mxuvc
 	if( mxuvc_video_init( "v4l2", options.str().c_str() ) )
 	{
+		LOG( ERROR ) << "Init fail";
 		throw std::runtime_error( "Failed to initialize mxuvc!" );
 	}
 	
 	// Register our video callback
 	if( mxuvc_video_register_cb( channelIn, CGeoCam::VideoCallback, m_pInputBuffer ) )
 	{
+		LOG( ERROR ) << "Register fails";
 		Cleanup();
 		throw std::runtime_error( "Failed to register video callback!" );
 	}
@@ -79,6 +81,11 @@ void CGeoCam::GetPictureTiming()
 	mxuvc_video_get_pict_timing( CH_MAIN, &temp );
 	
 	LOG( INFO ) << "Pict timing: " << temp;
+}
+
+void CGeoCam::SetPictureTiming( uint32_t pictTimingIn )
+{
+	mxuvc_video_set_pict_timing( CH_MAIN, pictTimingIn );
 }
 
 void CGeoCam::Cleanup()

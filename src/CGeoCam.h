@@ -56,7 +56,7 @@ public:
 	void DisableVUI();
 	
 	void GetPictureTiming();
-	
+	void SetPictureTiming( uint32_t pictTimingIn );
 	
 	void Cleanup();
 	

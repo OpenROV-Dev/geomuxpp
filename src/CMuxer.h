@@ -50,6 +50,7 @@ public:
 	AVFormatContext 	*m_pOutputFormatContext 	= NULL;
 	AVOutputFormat 		*m_pOutputFormat 			= NULL;
 	AVIOContext 		*m_pOutputAvioContext 		= NULL;
+	AVCodecContext 		*m_pOutputCodecContext		= NULL;
 	
 	uint8_t*			m_pOutputAvioContextBuffer	= NULL;		
 

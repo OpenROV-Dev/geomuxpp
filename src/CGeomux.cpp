@@ -33,10 +33,16 @@ void CGeomux::Run()
 		// Initialize the main channel of camera 0
 		m_geocam.InitDevice();
 		
-		m_geocam.GetPictureTiming();
+		// m_geocam.EnableVUI();
+		// m_geocam.SetPictureTiming( 1 );
+		// m_geocam.GetPictureTiming();
 		
 		// Start capturing data from the camera
-		m_geocam.StartVideo();
+		if( !m_geocam.StartVideo() )
+		{
+			LOG( ERROR ) << "Start video failed";
+			throw std::runtime_error( "Dead" );
+		}
 		
 		m_geocam.ForceIFrame();
 		
@@ -70,6 +76,7 @@ void CGeomux::HandleSignal( int signalIdIn )
 		LOG( INFO ) << "SIGINT Detected: Cleaning up gracefully...";
 		
 		m_quitApplication = true;
+		m_muxer.m_inputBuffer.m_dataAvailableCondition.notify_one();
 	}
 	else
 	{
@@ -83,6 +90,11 @@ void CGeomux::Update()
 		std::unique_lock<std::mutex> lock( m_muxer.m_inputBuffer.m_mutex );
 		while( m_muxer.m_inputBuffer.GetSize() == 0 )
 		{
+			if( m_quitApplication )
+			{
+				return;
+			}
+			
 			// Wait to be signaled that there is data
 			m_muxer.m_inputBuffer.m_dataAvailableCondition.wait( lock );
 		}
