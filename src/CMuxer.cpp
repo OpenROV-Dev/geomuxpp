@@ -240,9 +240,9 @@ void CMuxer::Update()
 			// AVStream *in_stream  = m_pInputFormatContext->streams[packet.stream_index];
 			// AVStream *out_stream = m_pOutputFormatContext->streams[packet.stream_index];
 	
-			LOG( INFO ) << "Packet PTS: " << packet.pts;
-			LOG( INFO ) << "Packet DTS: " << packet.dts;
-			LOG( INFO ) << "Packet duration: " << packet.duration;
+			// LOG( INFO ) << "Packet PTS: " << packet.pts;
+			// LOG( INFO ) << "Packet DTS: " << packet.dts;
+			// LOG( INFO ) << "Packet duration: " << packet.duration;
 	
 			// // Not sure if any of this is needed
 			// packet.pts = AV_NOPTS_VALUE;

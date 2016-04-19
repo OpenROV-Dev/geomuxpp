@@ -77,7 +77,7 @@ LDLIBPATHS = -L/usr/local/lib
 LDFLAGS = $(LDLIBPATHS)
 
 # LDLIBS - Which libs to link to, i.e. '-lm' or 'somelib.a'
-LDLIBS = -static -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lpthread -ldl -lz
+LDLIBS = -static -lmsgpackc -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lpthread -ldl -lz
 
 # --- INCLUDE CONFIGURATION
 

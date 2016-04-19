@@ -5,6 +5,8 @@
 #include "CGeomux.h"
 #include "easylogging.hpp"
 
+#include <msgpack.hpp>
+
 CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
 	, m_quitApplication( false )
