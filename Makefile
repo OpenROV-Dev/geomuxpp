@@ -101,7 +101,7 @@ COVERAGE_DIR=cov
 # --- COMPILATION FLAGS
 
 # Compiler to use:
-CXX=g++
+CXX=g++-4.9
 CC=$(CXX)
 
 # --- C++ compiler flags. We'll add on to these later based on build target.

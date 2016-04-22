@@ -1,17 +1,27 @@
 // Includes
 #include <signal.h>
 #include <unistd.h>
+#include <json.hpp>
 
 #include "CGeomux.h"
 #include "easylogging.hpp"
 
-#include <msgpack.hpp>
+using namespace std;
+using namespace CpperoMQ;
+
+using json = nlohmann::json;
 
 CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
-	, m_quitApplication( false )
-	, m_geocam( &m_muxer.m_inputBuffer )
+	, m_geomuxStatusPub( m_context.createPublishSocket() )
+	, m_geomuxCmdSub( m_context.createSubscribeSocket() )
+	, m_gc6500( &m_geomuxStatusPub )
 {
+	if( m_arguments.size() > 1 )
+	{
+		// Set the device offset for the gc6500 to the first argument
+		m_gc6500.SetDeviceOffset( m_arguments[ 1 ] );
+	}
 }
 
 CGeomux::~CGeomux()
@@ -22,48 +32,36 @@ void CGeomux::Run()
 {
 	try
 	{	
-		LOG( INFO ) << "Application Started.";
-
-		// Bind the zmq publisher to the geomux ipc file
-		//
-
-		// Set up the muxer
-		m_muxer.Initialize();
-		
-		// Initialize the main channel of camera 0
-		m_geocam.InitDevice();
-		
-		// m_geocam.EnableVUI();
-		// m_geocam.SetPictureTiming( 1 );
-		// m_geocam.GetPictureTiming();
-		
-		// Start capturing data from the camera
-		if( !m_geocam.StartVideo() )
+		do
 		{
-			LOG( ERROR ) << "Start video failed";
-			throw std::runtime_error( "Dead" );
-		}
-		
-		m_geocam.ForceIFrame();
-		
-		usleep( 50000 );
+			if( m_restart )
+			{
+				LOG( INFO ) << "Application Restarted.";
+				m_restart = false;
+			}
+			else
+			{
+				LOG( INFO ) << "Application Started.";
+			}
+			
+			Initialize();
+			
+			while( !m_quit && !m_restart )
+			{
+				Update();
+			}	
+			
+			Cleanup();
 
-		// Our application logic goes here.
-		while( m_quitApplication == false )
-		{
-			Update();		
+			LOG( INFO ) << "Application Ended.";
 		}
-		
-		// Stop capturing data
-		m_geocam.StopVideo();
-
-		LOG( INFO ) << "Application Ended.";
+		while( m_restart );
 	}
 	catch( const std::exception &e )
 	{
 		LOG( ERROR ) << "Exception in Run(): " << e.what();
+		Cleanup();
 	}
-	
 }
 
 void CGeomux::HandleSignal( int signalIdIn )
@@ -75,8 +73,7 @@ void CGeomux::HandleSignal( int signalIdIn )
 	{
 		LOG( INFO ) << "SIGINT Detected: Cleaning up gracefully...";
 		
-		m_quitApplication = true;
-		m_muxer.m_inputBuffer.m_dataAvailableCondition.notify_one();
+		Shutdown();
 	}
 	else
 	{
@@ -84,22 +81,96 @@ void CGeomux::HandleSignal( int signalIdIn )
 	}
 }
 
-void CGeomux::Update()
+void CGeomux::Initialize()
 {
-	{
-		std::unique_lock<std::mutex> lock( m_muxer.m_inputBuffer.m_mutex );
-		while( m_muxer.m_inputBuffer.GetSize() == 0 )
-		{
-			if( m_quitApplication )
-			{
-				return;
-			}
-			
-			// Wait to be signaled that there is data
-			m_muxer.m_inputBuffer.m_dataAvailableCondition.wait( lock );
-		}
-	}
+	// Bind publisher and subscriber
+	m_geomuxStatusPub.bind( "ipc:///tmp/geomux_status.ipc" );
+	m_geomuxCmdSub.bind( "ipc:///tmp/geomux_command.ipc" );
 	
-	// Run the muxer's update function
-	m_muxer.Update();
+	// Subscribe to anything (needs to be valid json to survive parsing)
+	m_geomuxCmdSub.setReceiveTimeout(0);
+	m_geomuxCmdSub.subscribe();
+	
+	m_gc6500.Initialize();
+	
+	sleep( 1 );
+	
+	EmitStatus( "initialized" );
+}
+
+void CGeomux::Update()
+{	
+	HandleMessages();
+}
+
+void CGeomux::Cleanup()
+{
+	LOG( INFO ) << "Cleanup";
+	m_gc6500.Cleanup();
+}
+
+void CGeomux::HandleMessages()
+{
+	try
+	{
+		// Get message
+		IncomingMessage msg;
+		
+		
+		while( m_geomuxCmdSub.receive( msg ) )
+		{
+			// Parse into json object
+			json message = json::parse( string( msg.charData(), msg.size() ) );
+			
+			// Pass json message to processor
+			if( message.at( "cmd" ) == "shutdown" )
+			{
+				Shutdown();
+			}
+			else if( message.at( "cmd" ) == "restart" )
+			{
+				Restart();
+			}
+			else
+			{
+				m_gc6500.HandleMessage( message );
+			}
+		}
+		
+	}
+	catch( const std::exception &e )
+	{
+		LOG( ERROR ) << "Error handling message: " << e.what();
+		EmitError( e.what() );
+		return;
+	}
+}
+
+void CGeomux::EmitStatus( const std::string &statusIn )
+{
+	// Create message
+	json status = { { "status", statusIn } };
+	
+	m_geomuxStatusPub.send( OutgoingMessage( status.dump().c_str() ) );
+}
+
+void CGeomux::EmitError( const std::string &errorIn )
+{
+	// Create message
+	json error = { { "error", errorIn } };
+	
+	m_geomuxStatusPub.send( OutgoingMessage( error.dump().c_str() ) );
+}
+
+void CGeomux::Shutdown()
+{
+	EmitStatus( "shuttingDown" );
+	m_quit = true;
+	m_restart = false;
+}
+
+void CGeomux::Restart()
+{
+	EmitStatus( "restarting" );
+	m_restart = true;
 }
