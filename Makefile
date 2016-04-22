@@ -105,7 +105,7 @@ CXX=g++-4.9
 CC=$(CXX)
 
 # --- C++ compiler flags. We'll add on to these later based on build target.
-CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -fPIC
+CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 -fPIC
 
 # --------------------------------------------------------------------------------------------------
 

@@ -3,40 +3,42 @@
 // Includes
 #include <mxuvc.h>
 #include <libmxcam.h>
+
 #include <zmq.hpp>
 #include <CpperoMQ/All.hpp>
 #include <json.hpp>
+
 #include <unordered_map>
+#include <functional>
 
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
 
 // Typedefs
-typedef std::unordered_map<std::string, std::function<void( nlohmann::json &commandIn )>> TApiFunctionMap;
+typedef std::unordered_map<std::string, std::function<void( const nlohmann::json &commandIn )>> TApiFunctionMap;
 
 class CVideoChannel
 {
 public:
 	// Methods
-	CVideoChannel();
+	CVideoChannel( video_channel_t channelIn );
 	virtual ~CVideoChannel();
 
 	void HandleMessage( const nlohmann::json &commandIn );
 
 private:
-
+	video_channel_t 				m_channel;
+	
 	TApiFunctionMap 				m_apiMap;
 	
 	///////////////////////////////////////
 	// Private Channel API
 	///////////////////////////////////////
-	void Init( int channelNumIn );
-	void Deinit( int channelNumIn );
-	void RegisterVideoCallback( int channelNumIn );
-	void GetVideoSettings( int channelNumIn );
-	void GetSensorSettings( int channelNumIn );
-	bool IsAlive( int channelNumIn );
-	
+	void Initialize();
+	void Cleanup();
+	void RegisterAPIFunctions();
+	void GetVideoSettings();
+	bool IsAlive();
 	
 	///////////////////////////////////////
 	// Public channel API

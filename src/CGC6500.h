@@ -6,7 +6,8 @@
 #include <zmq.hpp>
 #include <CpperoMQ/All.hpp>
 #include <json.hpp>
-#include <unordered_map>
+
+#include "CVideoChannel.h"
 
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
@@ -28,7 +29,7 @@ public:
 private:	
 	// Attributes
 	std::string 					m_deviceOffset;
-	// std::vector<CVideoChannel> 	m_channels;
+	std::vector<CVideoChannel> 		m_channels;
 	
 	CpperoMQ::PublishSocket 		*m_pGeomuxStatusPub;
 	
