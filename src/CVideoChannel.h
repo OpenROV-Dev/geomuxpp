@@ -28,6 +28,7 @@ public:
 
 private:
 	video_channel_t 				m_channel;
+	std::string						m_channelString;
 	
 	TApiFunctionMap 				m_apiMap;
 	
