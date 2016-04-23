@@ -1,6 +1,7 @@
 // Includes
 #include "CGC6500.h"
 #include "easylogging.hpp"
+#include "Utility.h"
 
 CGC6500::CGC6500( CpperoMQ::PublishSocket *geomuxStatusPubIn )
 	: m_deviceOffset( "0" )
@@ -45,6 +46,9 @@ void CGC6500::Cleanup()
 		throw std::runtime_error( "Deinit failed" );
 	}
 	
+	// Clear channels
+	m_pChannels.clear();
+	
 	LOG( INFO ) << "GC6500 cleaned up!";
 }
 
@@ -61,17 +65,25 @@ void CGC6500::CreateChannels()
 	// Create a new CVideoChannel for each detected channel on the camera
 	for( uint32_t i = 0; i < channelCount; ++i )
 	{
-		CVideoChannel channel( (video_channel_t)i );
-		
-		m_channels.push_back( std::move( channel ) );
+		m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i ) );
 	}
 	
-	LOG( INFO ) << "Channels created: " << m_channels.size();
+	LOG( INFO ) << "Channels created: " << m_pChannels.size();
 }
 
 void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 {
-	
+	try
+	{
+		size_t channelNum = commandIn.at( "ch" ).get<size_t>();
+		
+		// Pass message down to specified channel
+		m_pChannels.at( channelNum )->HandleMessage( commandIn );
+	}
+	catch( const std::exception &e )
+	{
+		LOG( ERROR ) << e.what();
+	}
 }
 void CGC6500::EmitStatus( const std::string &statusIn )
 {

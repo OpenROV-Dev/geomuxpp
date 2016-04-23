@@ -6,7 +6,9 @@
 #include "CGeomux.h"
 
 // Initialize Easylogger
+//#define ELPP_THREAD_SAFE
 INITIALIZE_EASYLOGGINGPP
+
 
 // Globals
 namespace global

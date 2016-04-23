@@ -28,8 +28,8 @@ public:
 
 private:	
 	// Attributes
-	std::string 					m_deviceOffset;
-	std::vector<CVideoChannel> 		m_channels;
+	std::string 									m_deviceOffset;
+	std::vector<std::unique_ptr<CVideoChannel>> 	m_pChannels;
 	
 	CpperoMQ::PublishSocket 		*m_pGeomuxStatusPub;
 	

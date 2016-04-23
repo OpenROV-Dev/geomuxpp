@@ -1,16 +1,37 @@
 // Includes
 #include <utility>
+#include <unistd.h>
 #include "CVideoChannel.h"
+#include "easylogging.hpp"
 
 CVideoChannel::CVideoChannel( video_channel_t channelIn )
 	: m_channel( channelIn )
+	
 {
-	std::stringstream temp;
-	temp << (int)m_channel;
-	m_channelString = temp.str();
+	m_channelString = std::to_string( (int)m_channel );
+	
+	Initialize();
 }
 
 CVideoChannel::~CVideoChannel(){}
+
+
+void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
+{
+	try
+	{
+		LOG( INFO ) << "ChannelCmd: " << commandIn.dump();
+		
+		std::string cmd = commandIn.at( "chCmd" ).get<std::string>();
+
+		// Call specified channel command with appropriate API function using passed in value
+		m_apiMap.at( cmd )( commandIn.at( "value" ) );
+	}
+	catch( const std::exception &e )
+	{
+		LOG( ERROR ) << "VideoChannel Error: " << e.what();
+	}
+}
 
 ///////////////////////////////////////
 // Private Channel API
@@ -21,10 +42,21 @@ void CVideoChannel::Initialize()
 	RegisterAPIFunctions();
 	
 	// Register video callback
-	// if( mxuvc_video_register_cb( m_channel, CMuxer::VideoCallback, m_pCameraSocket ) )
-	// {
-	// 	throw std::runtime_error( "Failed to register video callback!" );
-	// }
+	if( mxuvc_video_register_cb( m_channel, CVideoChannel::VideoCallback, this ) )
+	{
+		throw std::runtime_error( "Failed to register video callback!" );
+	}
+}
+
+// This gets called by the MXUVC library every time we have a NAL available
+void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn )
+{
+	CVideoChannel* channel = (CVideoChannel*) userDataIn;
+	
+	LOG(INFO) << "Got video data: " << channel->m_channelString << " - " << bufferSizeIn << " bytes";
+	
+	// Releases the buffer back to the MXUVC
+	mxuvc_video_cb_buf_done( channel->m_channel, infoIn.buf_index );
 }
 
 void CVideoChannel::Cleanup()
@@ -120,7 +152,7 @@ void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )
 {
 	try
 	{
-		if( mxuvc_video_set_framerate( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+		if( mxuvc_video_set_framerate( m_channel, commandIn.get<uint32_t>() ) )
 		{
 			throw;
 		}
@@ -135,7 +167,7 @@ void CVideoChannel::SetBitrate( const nlohmann::json &commandIn )
 {
 	try
 	{
-		if( mxuvc_video_set_bitrate( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+		if( mxuvc_video_set_bitrate( m_channel, commandIn.get<uint32_t>() ) )
 		{
 			throw;
 		}
@@ -157,7 +189,7 @@ void CVideoChannel::ForceIFrame( const nlohmann::json &commandIn )
 
 void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_goplen( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_goplen( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set GOP length on channel: " + m_channelString );
 	}
@@ -165,7 +197,7 @@ void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
 
 void CVideoChannel::SetGOPHierarchy( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_gop_hierarchy_level( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_gop_hierarchy_level( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set GOP hierarchy level on channel: " + m_channelString );
 	}
@@ -175,7 +207,7 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 {
 	try
 	{
-		std::string temp = commandIn[ "value" ];
+		std::string temp = commandIn;
 		video_profile_t profile;
 		
 		if( temp == "baseline" )
@@ -208,7 +240,7 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 
 void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_avc_level( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_avc_level( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set AVC Level on channel: " + m_channelString );
 	}
@@ -216,7 +248,7 @@ void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
 
 void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_maxnal( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_maxnal( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set Max NAL size on channel: " + m_channelString );
 	}
@@ -224,21 +256,21 @@ void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
 
 void CVideoChannel::EnableVUI( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_vui( m_channel, commandIn[ "value" ].get<bool>() ) )
+	if( mxuvc_video_set_vui( m_channel, commandIn.get<bool>() ) )
 	{
 		throw std::runtime_error( "Failed to set VUI enabled/disabled on channel: " + m_channelString );
 	}
 }
 void CVideoChannel::EnablePictTiming( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_pict_timing( m_channel, commandIn[ "value" ].get<bool>() ) )
+	if( mxuvc_video_set_pict_timing( m_channel, commandIn.get<bool>() ) )
 	{
 		throw std::runtime_error( "Failed to set Pict Timing enabled/disabled on channel: " + m_channelString );
 	}
 }
 void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_max_framesize( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_max_framesize( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set Max I-frame size on channel: " + m_channelString );
 	}
@@ -247,7 +279,7 @@ void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
 // MJPEG
 void CVideoChannel::SetCompressionQuality( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_compression_quality( m_channel, commandIn[ "value" ].get<uint32_t>() ) )
+	if( mxuvc_video_set_compression_quality( m_channel, commandIn.get<uint32_t>() ) )
 	{
 		throw std::runtime_error( "Failed to set compression quality on channel: " + m_channelString );
 	}

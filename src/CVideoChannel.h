@@ -24,6 +24,10 @@ public:
 	CVideoChannel( video_channel_t channelIn );
 	virtual ~CVideoChannel();
 
+	void Initialize();
+	void Cleanup();
+	void GetVideoSettings();
+	bool IsAlive();
 	void HandleMessage( const nlohmann::json &commandIn );
 
 private:
@@ -32,14 +36,12 @@ private:
 	
 	TApiFunctionMap 				m_apiMap;
 	
+	static void VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn );
+	
 	///////////////////////////////////////
 	// Private Channel API
 	///////////////////////////////////////
-	void Initialize();
-	void Cleanup();
 	void RegisterAPIFunctions();
-	void GetVideoSettings();
-	bool IsAlive();
 	
 	///////////////////////////////////////
 	// Public channel API
