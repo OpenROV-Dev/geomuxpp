@@ -130,7 +130,7 @@ void CVideoChannel::StartVideo( const nlohmann::json &commandIn )
 {
 	if( mxuvc_video_start( m_channel ) )
 	{
-		throw std::runtime_error( "Failed to start video on channel: " + m_channelString );
+		throw std::runtime_error( "Command failed: StartVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 }
 
@@ -138,7 +138,7 @@ void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
 {
 	if( mxuvc_video_stop( m_channel ) )
 	{
-		throw std::runtime_error( "Failed to stop video on channel: " + m_channelString );
+		throw std::runtime_error( "Command failed: StopVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 }
 
@@ -154,12 +154,12 @@ void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )
 	{
 		if( mxuvc_video_set_framerate( m_channel, commandIn.get<uint32_t>() ) )
 		{
-			throw;
+			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Failed to set framerate on channel: " + m_channelString );
+		throw std::runtime_error( "Command failed: SetFramerate[" + m_channelString + "]: " + e.what() );
 	}
 }
 
@@ -169,12 +169,12 @@ void CVideoChannel::SetBitrate( const nlohmann::json &commandIn )
 	{
 		if( mxuvc_video_set_bitrate( m_channel, commandIn.get<uint32_t>() ) )
 		{
-			throw;
+			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Failed to set bitrate on channel: " + m_channelString );
+		throw std::runtime_error( "Command failed: SetBitrate[" + m_channelString + "]: " + e.what() );
 	}
 }
 
@@ -183,23 +183,38 @@ void CVideoChannel::ForceIFrame( const nlohmann::json &commandIn )
 {
 	if( mxuvc_video_force_iframe( m_channel ) )
 	{
-		throw std::runtime_error( "Failed to force I-Frame on channel: " + m_channelString );
+		throw std::runtime_error( "MXUVC Failure" );
 	}
 }
 
 void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_goplen( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set GOP length on channel: " + m_channelString );
+		
+		if( mxuvc_video_set_goplen( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetGOPLength[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 void CVideoChannel::SetGOPHierarchy( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_gop_hierarchy_level( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set GOP hierarchy level on channel: " + m_channelString );
+		if( mxuvc_video_set_gop_hierarchy_level( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetGOPHierarchy[" + m_channelString + "]: " + e.what() );
 	}
 }
 
@@ -207,7 +222,7 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 {
 	try
 	{
-		std::string temp = commandIn;
+		std::string temp = commandIn.get<std::string>();
 		video_profile_t profile;
 		
 		if( temp == "baseline" )
@@ -224,272 +239,639 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 		}
 		else
 		{
-			throw;
+			throw std::runtime_error( "Invalid AVC Profile value" );
 		}
 		
 		if( mxuvc_video_set_profile( m_channel, profile ) )
 		{
-			throw;
+			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Failed to set AVC Profile on channel: " + m_channelString );
+		throw std::runtime_error( "Command failed: SetAVCProfile[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_avc_level( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set AVC Level on channel: " + m_channelString );
+		if( mxuvc_video_set_avc_level( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetAVCLevel[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_maxnal( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set Max NAL size on channel: " + m_channelString );
+		if( mxuvc_video_set_maxnal( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetMaxNALSize[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 void CVideoChannel::EnableVUI( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_vui( m_channel, commandIn.get<bool>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set VUI enabled/disabled on channel: " + m_channelString );
+		if( mxuvc_video_set_vui( m_channel, commandIn.get<bool>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: EnableVUI[" + m_channelString + "]: " + e.what() );
 	}
 }
 void CVideoChannel::EnablePictTiming( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_pict_timing( m_channel, commandIn.get<bool>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set Pict Timing enabled/disabled on channel: " + m_channelString );
+		if( mxuvc_video_set_pict_timing( m_channel, commandIn.get<bool>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: EnablePictTiming[" + m_channelString + "]: " + e.what() );
 	}
 }
 void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_max_framesize( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set Max I-frame size on channel: " + m_channelString );
+		if( mxuvc_video_set_max_framesize( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetMaxIFrameSize[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 // MJPEG
 void CVideoChannel::SetCompressionQuality( const nlohmann::json &commandIn )
 {
-	if( mxuvc_video_set_compression_quality( m_channel, commandIn.get<uint32_t>() ) )
+	try
 	{
-		throw std::runtime_error( "Failed to set compression quality on channel: " + m_channelString );
+		if( mxuvc_video_set_compression_quality( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetCompressionQuality[" + m_channelString + "]: " + e.what() );
 	}
 }
 
 // Sensor
 void CVideoChannel::EnableFlipVertical( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_flip_vertical( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Flip Vertical on channel: " + m_channelString );
-	// }
+	try
+	{
+		video_flip_t flip = ( commandIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+			
+		if( mxuvc_video_set_flip_vertical( m_channel, flip ) )
+		{
+			throw std::runtime_error( "Failed to set Flip Vertical on channel: " + m_channelString );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: EnableFlipVertical[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::EnableFlipHorizontal( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_flip_horizontal( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Flip Horizontal on channel: " + m_channelString );
-	// }
+	try
+	{
+		video_flip_t flip = ( commandIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+			
+		if( mxuvc_video_set_flip_horizontal( m_channel, flip ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: EnableFlipHorizontal[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetContrast( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_contrast( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set contrast on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_contrast( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetContrast[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetZoom( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_zoom( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Zoom on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_zoom( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetZoom[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetPan( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_pan( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Pan on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_pan( m_channel, commandIn.get<int32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetPan[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetTilt( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_tilt( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Tilt on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_tilt( m_channel, commandIn.get<int32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetTilt[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetPantilt( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_pantilt( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Pan/Tilt on channel: " + m_channelString );
-	// }
+	try
+	{
+		int32_t pan = commandIn[ "pan" ].get<int32_t>();
+		int32_t tilt = commandIn[ "tilt" ].get<int32_t>();
+		
+		if( mxuvc_video_set_pantilt( m_channel, pan, tilt ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetPantilt[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetBrightness( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_brightness( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Brightness on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_brightness( m_channel, commandIn.get<int16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetBrightness[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetHue( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_hue( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Hue on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_hue( m_channel, commandIn.get<int16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetHue[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetGamma( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_gamma( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Gamma on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_gamma( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetGamma[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetSaturation( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_saturation( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Saturation on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_saturation( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetSaturation[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetGain( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_gain( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Gain on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_gain( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetGain[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetSharpness( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_sharpness( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Sharpness on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_sharpness( m_channel, commandIn.get<uint16_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetSharpness[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_max_analog_gain( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Max Analog Gain on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_max_analog_gain( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetMaxAnalogGain[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetHistogramEQ( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_histogram_eq( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Histogram EQ on channel: " + m_channelString );
-	// }
+	try
+	{
+		histo_eq_t histEq = ( commandIn.get<bool>() ? HISTO_EQ_ON : HISTO_EQ_OFF );
+		
+		if( mxuvc_video_set_histogram_eq( m_channel, histEq ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetHistogramEQ[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetSharpenFilter( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_sharpen_filter( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Sharpen Filter on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_sharpen_filter( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetSharpenFilter[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_min_exp_framerate( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Min AutoExposure Framerate on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_min_exp_framerate( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetMinAutoExposureFramerate[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_tf_strength( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Temporal Filter Strength on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_tf_strength( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetTemporalFilterStrength[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetGainMultiplier( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_gain_multiplier( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Gain Multiplier on channel: " + m_channelString );
-	// }
+	try
+	{
+		if( mxuvc_video_set_gain_multiplier( m_channel, commandIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetGainMultiplier[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_exp( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Exposure Mode on channel: " + m_channelString );
-	// }
+	try
+	{
+		exp_set_t exposureMode;
+		uint16_t exposureTime = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "auto" )
+		{
+			exposureMode = EXP_AUTO;
+		}
+		else if( mode == "manual" )
+		{
+			exposureMode = EXP_MANUAL;
+			exposureTime = commandIn[ "exposureTime" ].get<uint16_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid exposure mode" );
+		}
+		
+		if( mxuvc_video_set_exp( m_channel, exposureMode, exposureTime ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetExposureMode[" + m_channelString + "]: " + e.what() );
+	}
+		
 }
 
 void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_nf( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Noise Filter Mode on channel: " + m_channelString );
-	// }
+	try
+	{
+		noise_filter_mode_t filterMode;
+		uint16_t filterStrength = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "auto" )
+		{
+			filterMode = NF_MODE_AUTO;
+		}
+		else if( mode == "manual" )
+		{
+			filterMode = NF_MODE_MANUAL;
+			filterStrength = commandIn[ "filterStrength" ].get<uint16_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid filter mode" );
+		}
+		
+		if( mxuvc_video_set_nf( m_channel, filterMode, filterStrength ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetNoiseFilterMode[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_wb( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set White Balance Mode on channel: " + m_channelString );
-	// }
+	try
+	{
+		white_balance_mode_t wbMode;
+		uint16_t temperature = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "auto" )
+		{
+			wbMode = WB_MODE_AUTO;
+		}
+		else if( mode == "manual" )
+		{
+			wbMode = WB_MODE_MANUAL;
+			temperature = commandIn[ "temperature" ].get<uint16_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid wb mode" );
+		}
+		
+		if( mxuvc_video_set_wb( m_channel, wbMode, temperature ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetWhiteBalanceMode[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_wdr( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Wide Dynamic Range Mode on channel: " + m_channelString );
-	// }
+	try
+	{
+		wdr_mode_t wdrMode;
+		uint8_t intensity = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "disable" )
+		{
+			wdrMode = WDR_DISABLE;
+		}
+		else if( mode == "auto" )
+		{
+			wdrMode = WDR_AUTO;
+		}
+		else if( mode == "manual" )
+		{
+			wdrMode = WDR_MANUAL;
+			intensity = commandIn[ "intensity" ].get<uint8_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid wb mode" );
+		}
+		
+		if( mxuvc_video_set_wdr( m_channel, wdrMode, intensity ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetWideDynamicRangeMode[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_zone_exp( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Zone Exposure on channel: " + m_channelString );
-	// }
+	try
+	{
+		zone_exp_set_t enableZoneExp;
+		uint16_t expValue = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "disable" )
+		{
+			enableZoneExp = ZONE_EXP_DISABLE;
+		}
+		else if( mode == "enable" )
+		{
+			enableZoneExp = ZONE_EXP_ENABLE;
+			expValue = commandIn[ "expValue" ].get<uint16_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid zone exp mode" );
+		}
+		
+		if( mxuvc_video_set_zone_exp( m_channel, enableZoneExp, expValue ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetZoneExposure[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_zone_wb( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Zone White Balance on channel: " + m_channelString );
-	// }
+	try
+	{
+		zone_wb_set_t enableZoneWb;
+		uint16_t wbValue = 0;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "disable" )
+		{
+			enableZoneWb = ZONE_WB_DISABLE;
+		}
+		else if( mode == "enable" )
+		{
+			enableZoneWb = ZONE_WB_ENABLE;
+			wbValue = commandIn[ "wbValue" ].get<uint16_t>();
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid zone wb mode" );
+		}
+		
+		if( mxuvc_video_set_zone_wb( m_channel, enableZoneWb, wbValue ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetZoneWhiteBalance[" + m_channelString + "]: " + e.what() );
+	}
 }
 
 void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 {
-	// if( mxuvc_video_set_pwr_line_freq( m_channel ) )
-	// {
-	// 	throw std::runtime_error( "Failed to set Power Line Frequency on channel: " + m_channelString );
-	// }
+	try
+	{
+		pwr_line_freq_mode_t pwrMode;
+		std::string mode = commandIn[ "mode" ].get<std::string>();
+		
+		if( mode == "disable" )
+		{
+			pwrMode = PWR_LINE_FREQ_MODE_DISABLE;
+		}
+		else if( mode == "50HZ" )
+		{
+			pwrMode = PWR_LINE_FREQ_MODE_50HZ;
+		}
+		else if( mode == "60HZ" )
+		{
+			pwrMode = PWR_LINE_FREQ_MODE_60HZ;
+		}
+		else
+		{
+			throw std::runtime_error( "Invalid pwr freq mode" );
+		}
+		
+		
+		if( mxuvc_video_set_pwr_line_freq( m_channel, pwrMode ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetPowerLineFrequency[" + m_channelString + "]: " + e.what() );
+	}
 }
