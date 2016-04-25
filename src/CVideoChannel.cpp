@@ -1,8 +1,12 @@
 // Includes
 #include <utility>
 #include <unistd.h>
+#include <chrono>
 #include "CVideoChannel.h"
 #include "easylogging.hpp"
+
+using namespace std;
+using json = nlohmann::json;
 
 CVideoChannel::CVideoChannel( video_channel_t channelIn )
 	: m_channel( channelIn )
@@ -20,12 +24,8 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 {
 	try
 	{
-		LOG( INFO ) << "ChannelCmd: " << commandIn.dump();
-		
-		std::string cmd = commandIn.at( "chCmd" ).get<std::string>();
-
 		// Call specified channel command with appropriate API function using passed in value
-		m_apiMap.at( cmd )( commandIn.at( "value" ) );
+		m_apiMap.at( commandIn.at( "chCmd" ).get<std::string>() )( commandIn.at( "value" ) );
 	}
 	catch( const std::exception &e )
 	{
@@ -53,7 +53,10 @@ void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bu
 {
 	CVideoChannel* channel = (CVideoChannel*) userDataIn;
 	
-	LOG(INFO) << "Got video data: " << channel->m_channelString << " - " << bufferSizeIn << " bytes";
+	// LOG(INFO) << "Got video data: " << channel->m_channelString << " - " << bufferSizeIn << " bytes";
+	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+
+	cout << "Update at: " << now << endl;
 	
 	// Releases the buffer back to the MXUVC
 	mxuvc_video_cb_buf_done( channel->m_channel, infoIn.buf_index );
@@ -146,6 +149,27 @@ void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
 {
 	// TODO
 	// Loop through all of the setting objects in the command, calling their API callbacks with that json field being the input to the API callback
+	
+	// cmd : chCmd
+	// ch: x
+	// chCmd: SetMultipleSettings
+	// value: { object with all settings } == commandIn
+	// 	key (setting name): { value ( setting parameters ) }
+	
+	for (json::const_iterator it = commandIn.begin(); it != commandIn.end(); ++it) 
+	{
+		try
+		{
+			// Call specified channel command with appropriate API function using passed in value
+			m_apiMap.at( it.key() )( it.value() );
+		}
+		catch( const std::exception &e )
+		{
+			LOG( ERROR ) << "Failed to set parameter in group: " << it.key();
+		}
+	}
+	
+	LOG( INFO ) << "DONE";
 }
 
 void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )

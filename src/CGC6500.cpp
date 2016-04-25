@@ -74,11 +74,18 @@ void CGC6500::CreateChannels()
 void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 {
 	try
-	{
-		size_t channelNum = commandIn.at( "ch" ).get<size_t>();
-		
-		// Pass message down to specified channel
-		m_pChannels.at( channelNum )->HandleMessage( commandIn );
+	{		
+		if( commandIn[ "cmd" ].get<std::string>() == "chCmd" )
+		{
+			size_t channelNum = commandIn.at( "ch" ).get<size_t>();
+			
+			// Pass message down to specified channel
+			m_pChannels.at( channelNum )->HandleMessage( commandIn );
+		}
+		else
+		{
+			throw std::runtime_error( "Unknown command" );
+		}
 	}
 	catch( const std::exception &e )
 	{

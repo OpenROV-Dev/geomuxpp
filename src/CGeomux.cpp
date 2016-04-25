@@ -48,6 +48,7 @@ void CGeomux::Run()
 			
 			while( !m_quit && !m_restart )
 			{
+				LOG( INFO ) << "Update";
 				Update();
 			}	
 			
@@ -88,12 +89,10 @@ void CGeomux::Initialize()
 	m_geomuxCmdSub.bind( "ipc:///tmp/geomux_command.ipc" );
 	
 	// Subscribe to anything (needs to be valid json to survive parsing)
-	m_geomuxCmdSub.setReceiveTimeout(0);
+	// m_geomuxCmdSub.setReceiveTimeout(0);
 	m_geomuxCmdSub.subscribe();
 	
 	m_gc6500.Initialize();
-	
-	sleep( 1 );
 	
 	EmitStatus( "initialized" );
 }
@@ -116,7 +115,6 @@ void CGeomux::HandleMessages()
 		// Get message
 		IncomingMessage msg;
 		
-		
 		while( m_geomuxCmdSub.receive( msg ) )
 		{
 			// Parse into json object
@@ -126,10 +124,13 @@ void CGeomux::HandleMessages()
 			if( message.at( "cmd" ) == "shutdown" )
 			{
 				Shutdown();
+				break;
 			}
 			else if( message.at( "cmd" ) == "restart" )
 			{
+				LOG( INFO ) << "Restarting";
 				Restart();
+				break;
 			}
 			else
 			{
