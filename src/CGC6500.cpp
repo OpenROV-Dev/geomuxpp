@@ -60,10 +60,17 @@ void CGC6500::CreateChannels()
 	
 	// Create a new CVideoChannel for each detected channel on the camera
 	// TODO: Figure out why other channels arent working
-	//for( uint32_t i = 0; i < channelCount; ++i )
-	for( uint32_t i = 0; i < 1; ++i )
+	for( uint32_t i = 0; i < channelCount; ++i )
+	//for( uint32_t i = 0; i < 1; ++i )
 	{
-		m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
+		try
+		{
+			m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
+		}
+		catch( const std::exception &e )
+		{
+			cerr << "Failed to create channel " << i << ": " << e.what() << endl;
+		}
 	}
 	
 	std::cout << "Channels created: " << m_pChannels.size() << std::endl;

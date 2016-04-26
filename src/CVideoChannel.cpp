@@ -35,7 +35,7 @@ CVideoChannel::CVideoChannel( video_channel_t channelIn, CpperoMQ::Context *cont
 	m_pStatusPublisher->EmitChannelRegistration( (uint32_t)m_channel, m_endpoint, true );
 	
 	// Publish settings for channel
-	PublishSettings();
+	PublishSettings( json("") );
 }
 
 CVideoChannel::~CVideoChannel()
@@ -89,7 +89,7 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_apiMap.insert( std::make_pair( std::string("video_start"), 			[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
-
+	m_apiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &commandIn ){ this->PublishSettings( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
 	
 	m_apiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
@@ -132,9 +132,9 @@ void CVideoChannel::RegisterAPIFunctions()
 
 
 	// GET API
-	m_getAPIMap.insert( std::make_pair( std::string("publish_settings"), 		[this](){ this->PublishSettings(); } ) );
+	
 
-	m_getAPIMap.insert( std::make_pair( std::string("framerate"), 				[this](){ this->GetFramerate(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("channel_info"), 			[this](){ this->GetChannelInfo(); } ) );
 	m_getAPIMap.insert( std::make_pair( std::string("framerate"), 				[this](){ this->GetFramerate(); } ) );
 	m_getAPIMap.insert( std::make_pair( std::string("bitrate"), 				[this](){ this->GetBitrate(); } ) );
 	m_getAPIMap.insert( std::make_pair( std::string("goplen"), 					[this](){ this->GetGOPLength(); } ) );
@@ -1028,7 +1028,7 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 ///////////////
 
 // General
-void CVideoChannel::PublishSettings()
+void CVideoChannel::PublishSettings( const nlohmann::json &commandIn )
 {	
 	json settings = 
 	{
@@ -1081,7 +1081,7 @@ void CVideoChannel::GetChannelInfo()
 				m_settings[ "format" ] = "mjpeg";
 				break;
 			default:
-				m_settings[ "format" ] = "unknown";
+				throw std::runtime_error( "Unsupported video format" );
 				break;
 		}
 		
