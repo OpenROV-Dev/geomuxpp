@@ -46,5 +46,7 @@ void CStatusPublisher::EmitChannelRegistration( uint32_t channelNumIn, const std
 
 void CStatusPublisher::EmitSettings( const nlohmann::json &settingsIn )
 {
+	cout << "Settings: " << settingsIn.dump().c_str() << endl;
+	
 	m_publisher.send( OutgoingMessage( "channel_settings" ), OutgoingMessage( settingsIn.dump().c_str() ) );
 }

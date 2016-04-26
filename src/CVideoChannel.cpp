@@ -33,6 +33,9 @@ CVideoChannel::CVideoChannel( video_channel_t channelIn, CpperoMQ::Context *cont
 	
 	// Announce channel has come online and is ready to use
 	m_pStatusPublisher->EmitChannelRegistration( (uint32_t)m_channel, m_endpoint, true );
+	
+	// Publish settings for channel
+	PublishSettings();
 }
 
 CVideoChannel::~CVideoChannel()
@@ -1026,8 +1029,14 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 
 // General
 void CVideoChannel::PublishSettings()
-{
-	m_settings.dump();
+{	
+	json settings = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "settings", m_settings }
+	};
+	
+	m_pStatusPublisher->EmitSettings( settings );
 }
 
 void CVideoChannel::GetAllSettings()
