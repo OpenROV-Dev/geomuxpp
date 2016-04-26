@@ -48,7 +48,6 @@ public:
 	// Methods
 	void Initialize();
 	void Update();
-	void Cleanup();
 	
 	void StartThread();
 	void StopThread();
