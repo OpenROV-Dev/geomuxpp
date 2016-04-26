@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <functional>
 
+#include "CMuxer.h"
+
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
 
@@ -21,11 +23,9 @@ class CVideoChannel
 {
 public:
 	// Methods
-	CVideoChannel( video_channel_t channelIn );
+	CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t channelIn );
 	virtual ~CVideoChannel();
 
-	void Initialize();
-	void Cleanup();
 	void GetVideoSettings();
 	bool IsAlive();
 	void HandleMessage( const nlohmann::json &commandIn );
@@ -35,6 +35,7 @@ private:
 	std::string						m_channelString;
 	
 	TApiFunctionMap 				m_apiMap;
+	CMuxer							m_muxer;
 	
 	static void VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn );
 	

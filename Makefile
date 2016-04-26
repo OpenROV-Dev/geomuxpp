@@ -77,8 +77,9 @@ LDLIBPATHS = -L/usr/local/lib
 LDFLAGS = $(LDLIBPATHS)
 
 # LDLIBS - Which libs to link to, i.e. '-lm' or 'somelib.a'
-LDLIBS = -static -lmsgpackc -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lpthread -ldl -lz
-
+#
+LDLIBS = -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lmxcam -lmxuvc -lpthread 
+#LDLIBS = -static -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -ldl -lz
 # --- INCLUDE CONFIGURATION
 
 # EXTRA_INCLUDES - Any additional files you'd like to include i.e. '-I/usr/local/include'
@@ -105,7 +106,8 @@ CXX=g++-4.9
 CC=$(CXX)
 
 # --- C++ compiler flags. We'll add on to these later based on build target.
-CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 -fPIC
+#-fPIC
+CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 
 
 # --------------------------------------------------------------------------------------------------
 

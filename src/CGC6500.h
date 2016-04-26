@@ -16,13 +16,10 @@ class CGC6500
 {
 public:
 	// Methods
-	CGC6500( CpperoMQ::PublishSocket *geomuxStatusPubIn );
+	CGC6500( CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn );
 	virtual ~CGC6500();
 	
 	void SetDeviceOffset( const std::string &deviceOffsetIn );
-	
-	void Initialize();
-	void Cleanup();
 	
 	void HandleMessage( const nlohmann::json &commandIn );
 
@@ -32,6 +29,8 @@ private:
 	std::vector<std::unique_ptr<CVideoChannel>> 	m_pChannels;
 	
 	CpperoMQ::PublishSocket 		*m_pGeomuxStatusPub;
+	
+	CpperoMQ::Context *m_pContext;
 	
 	// Methods
 	void RegisterAPIMap();

@@ -3,18 +3,27 @@
 #include <unistd.h>
 #include <chrono>
 #include "CVideoChannel.h"
-#include "easylogging.hpp"
 
 using namespace std;
 using json = nlohmann::json;
 
-CVideoChannel::CVideoChannel( video_channel_t channelIn )
+CVideoChannel::CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t channelIn )
 	: m_channel( channelIn )
-	
+	, m_muxer( contextIn, channelIn, EVideoFormat::UNKNOWN )
 {
 	m_channelString = std::to_string( (int)m_channel );
 	
-	Initialize();
+	// Map command strings to API
+	RegisterAPIFunctions();
+	
+	// LOG INFO ) << "Registering callback for channel: " << m_channel;
+	
+	// Register video callback
+	if( mxuvc_video_register_cb( m_channel, CVideoChannel::VideoCallback, this ) )
+	{
+		// LOG ERROR ) << "Registering callback!";
+		throw std::runtime_error( "Failed to register video callback!" );
+	}
 }
 
 CVideoChannel::~CVideoChannel(){}
@@ -29,43 +38,28 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		LOG( ERROR ) << "VideoChannel Error: " << e.what();
+		// LOG ERROR ) << "VideoChannel Error: " << e.what();
 	}
 }
 
 ///////////////////////////////////////
 // Private Channel API
 ///////////////////////////////////////
-void CVideoChannel::Initialize()
-{
-	// Map command strings to API
-	RegisterAPIFunctions();
-	
-	// Register video callback
-	if( mxuvc_video_register_cb( m_channel, CVideoChannel::VideoCallback, this ) )
-	{
-		throw std::runtime_error( "Failed to register video callback!" );
-	}
-}
 
 // This gets called by the MXUVC library every time we have a NAL available
 void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn )
 {
+	cout << "Got video data Bytes: " << bufferSizeIn << endl;
+	
 	CVideoChannel* channel = (CVideoChannel*) userDataIn;
 	
-	// LOG(INFO) << "Got video data: " << channel->m_channelString << " - " << bufferSizeIn << " bytes";
-	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-
-	cout << "Update at: " << now << endl;
+	// Write the video data to the channel's muxer input buffer
+	channel->m_muxer.m_inputBuffer.Write( dataBufferOut, bufferSizeIn );
 	
 	// Releases the buffer back to the MXUVC
 	mxuvc_video_cb_buf_done( channel->m_channel, infoIn.buf_index );
 }
 
-void CVideoChannel::Cleanup()
-{
-	
-}
 
 void CVideoChannel::RegisterAPIFunctions()
 {
@@ -131,14 +125,25 @@ bool CVideoChannel::IsAlive()
 // General
 void CVideoChannel::StartVideo( const nlohmann::json &commandIn )
 {
+	// LOG INFO ) << "Starting channel: " << m_channel;
+	
+	mxuvc_video_set_vui( m_channel, 1 );
+	mxuvc_video_set_pict_timing( m_channel, 1);
+	
 	if( mxuvc_video_start( m_channel ) )
 	{
+		// LOG ERROR ) << "Ahhhh: " << m_channel;
 		throw std::runtime_error( "Command failed: StartVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 }
 
 void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
 {
+	// LOG INFO ) << "Stopping channel: " << m_channel;
+	
+	// Clear the video buffer
+	m_muxer.m_inputBuffer.Clear();
+	
 	if( mxuvc_video_stop( m_channel ) )
 	{
 		throw std::runtime_error( "Command failed: StopVideo[" + m_channelString + "]: MXUVC failure" );
@@ -165,11 +170,11 @@ void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
 		}
 		catch( const std::exception &e )
 		{
-			LOG( ERROR ) << "Failed to set parameter in group: " << it.key();
+			// LOG ERROR ) << "Failed to set parameter in group: " << it.key();
 		}
 	}
 	
-	LOG( INFO ) << "DONE";
+	// LOG INFO ) << "DONE";
 }
 
 void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )

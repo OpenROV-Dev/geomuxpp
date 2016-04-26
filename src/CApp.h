@@ -10,6 +10,9 @@ class CApp
 public:
 	// Attributes
 	std::vector<std::string> m_arguments;
+	
+	bool m_quit = false;
+	bool m_restart = false;
 
 	// Methods
 	CApp( int argCountIn, char* argsIn[] );

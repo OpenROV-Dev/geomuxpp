@@ -1,28 +1,24 @@
 // Includes
 #include "CGC6500.h"
-#include "easylogging.hpp"
 #include "Utility.h"
 
-CGC6500::CGC6500( CpperoMQ::PublishSocket *geomuxStatusPubIn )
+extern "C" 
+{ 
+	// FFmpeg
+	#include <libavformat/avformat.h>
+
+}
+
+CGC6500::CGC6500( CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn )
 	: m_deviceOffset( "0" )
 	, m_pGeomuxStatusPub( geomuxStatusPubIn )
+	, m_pContext( contextIn )
 {
-	
-}
-
-CGC6500::~CGC6500(){}
-
-void CGC6500::SetDeviceOffset( const std::string &deviceOffsetIn )
-{
-	m_deviceOffset = deviceOffsetIn;
-}
-
-void CGC6500::Initialize()
-{
-	LOG( INFO ) << "Initializing GC6500...";
+	// Initialize libavcodec, and register all codecs and formats.
+	av_register_all();
 	
 	// Set a custom device offset
-	std::string options( "dev_offset=" + m_deviceOffset );
+	std::string options( "dev_offset=" + m_deviceOffset + ",v4l_buffers=16" );
 	
 	// Initialize mxuvc
 	if( mxuvc_video_init( "v4l2", options.c_str() ) )
@@ -32,24 +28,20 @@ void CGC6500::Initialize()
 	
 	// Create channels
 	CreateChannels();
-	
-	LOG( INFO ) << "GC6500 initialized!";
 }
 
-void CGC6500::Cleanup()
+CGC6500::~CGC6500()
 {
-	LOG( INFO ) << "Cleaning up GC6500...";
-	
 	// Deinit mxuvc
 	if( mxuvc_video_deinit() )
 	{
 		throw std::runtime_error( "Deinit failed" );
 	}
-	
-	// Clear channels
-	m_pChannels.clear();
-	
-	LOG( INFO ) << "GC6500 cleaned up!";
+}
+
+void CGC6500::SetDeviceOffset( const std::string &deviceOffsetIn )
+{
+	m_deviceOffset = deviceOffsetIn;
 }
 
 void CGC6500::CreateChannels()
@@ -63,12 +55,14 @@ void CGC6500::CreateChannels()
 	}
 	
 	// Create a new CVideoChannel for each detected channel on the camera
-	for( uint32_t i = 0; i < channelCount; ++i )
+	// TODO: Figure out why other channels arent working
+	//for( uint32_t i = 0; i < channelCount; ++i )
+	for( uint32_t i = 0; i < 1; ++i )
 	{
-		m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i ) );
+		m_pChannels.push_back( util::make_unique<CVideoChannel>( m_pContext, (video_channel_t)i ) );
 	}
 	
-	LOG( INFO ) << "Channels created: " << m_pChannels.size();
+	std::cout << "Channels created: " << m_pChannels.size() << std::endl;
 }
 
 void CGC6500::HandleMessage( const nlohmann::json &commandIn )
@@ -89,7 +83,7 @@ void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		LOG( ERROR ) << e.what();
+		std::cerr << e.what() << std::endl;
 	}
 }
 void CGC6500::EmitStatus( const std::string &statusIn )
