@@ -48,10 +48,6 @@ public:
 	// Methods
 	void Initialize();
 	void Update();
-	
-	void StartThread();
-	void StopThread();
-	
 	void ThreadLoop();
 		
 	EVideoFormat 				m_format;
