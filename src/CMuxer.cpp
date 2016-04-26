@@ -133,6 +133,7 @@ void CMuxer::Update()
 			if( probeData.buf_size > 2000000 )
 			{
 				// Probe data
+				cout << "Probing input buffer for format info..." << endl;
 				m_pInputFormatContext->iformat = av_probe_input_format2( &probeData, 1, &score );
 			}
 			else
@@ -150,6 +151,7 @@ void CMuxer::Update()
 		if( m_pInputFormatContext->iformat )
 		{	
 			// Successfully for the input format
+			cout << "Successfully acquired input format." << endl;
 			
 			// Open the format context. Codec type was already detected in prior step.
 			int ret = avformat_open_input( &m_pInputFormatContext, NULL, NULL, NULL );
@@ -162,19 +164,26 @@ void CMuxer::Update()
 			{
 				cout << "Input opened successfully!" << endl;
 				
-				// DEBUG
-				av_dump_format( m_pInputFormatContext, 0, 0, 0 );
-				
 				m_formatAcquired = true;
+				
+				cout << "Finding stream info..." << endl;
 				
 				// Read some packets in the AVIO context buffer to get stream information
 				if( avformat_find_stream_info( m_pInputFormatContext, NULL ) < 0 )
 				{
 					cerr << "Unable to find stream info!" << endl;
+					return;
 				}
+				
+				// DEBUG
+				av_dump_format( m_pInputFormatContext, 0, 0, 0 );
+				
+				cout << "Stream info acquired." << endl;
 				
 				// Find the codec info in the stream info
 				m_pInputCodecContext = m_pInputFormatContext->streams[0]->codec;
+				
+				cout << "Finding codec..." << endl;
 				
 				// Find the codec needed for the stream
 				AVCodec *pCodec = avcodec_find_decoder( m_pInputCodecContext->codec_id );
@@ -184,12 +193,16 @@ void CMuxer::Update()
 					return;
 				}				
 				
+				cout << "Opening codec..." << endl;
+				
 				// Open codec
 				if( avcodec_open2( m_pInputCodecContext, pCodec, NULL ) < 0 ) 
 				{
 					cerr << "Failed to open decoder" << endl;
 					return;
 				}
+			
+				cout << "Codec opened." << endl;
 			
 				// Set some flags on the output format context
 				// TODO: Is this needed?
@@ -208,6 +221,8 @@ void CMuxer::Update()
 						cerr << "Failed allocating output stream" << endl;
 						return;
 					}
+					
+					cout << "Created output stream." << endl;
 			
 					// Copy the codec context from the input stream to the output stream, since we are just muxing to mp4.
 					ret = avcodec_copy_context( out_stream->codec, in_stream->codec );
@@ -215,7 +230,9 @@ void CMuxer::Update()
 					{
 						cerr << "Failed to copy context from input to output stream codec context" << endl;
 						return;
-					}				
+					}			
+					
+					cout << "Copied input codec context to output codec context." << endl;	
 					
 					// TODO: Is this necessary?
 					if (m_pOutputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
@@ -223,10 +240,11 @@ void CMuxer::Update()
 						m_pInputCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 					}
 				}
-				
-				
-				
+						
+				// Set flags that will produce fragmented mp4 for livestreaming
 				av_dict_set( &m_pMuxerOptions, "movflags", "empty_moov+default_base_moof+frag_keyframe", 0 );
+				
+				cout << "Writing FTYP+MOOV..." << endl;
 				
 				// Write Header Frame (ftyp+moov)
 				// The header writes twice. This forces it to buffer the two writes together before sending the async signal
@@ -237,6 +255,8 @@ void CMuxer::Update()
 					cerr << "Error occurred when writing header!";
 					return;
 				}
+				
+				cout << "Ready to mux!" << endl;
 				
 				// We can now proceed to mux and send all subsequent frames
 				m_canMux = true;

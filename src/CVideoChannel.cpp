@@ -49,7 +49,9 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 // This gets called by the MXUVC library every time we have a NAL available
 void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn )
 {
-	cout << "Got video data Bytes: " << bufferSizeIn << endl;
+	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+
+	cerr << "Input: " << bufferSizeIn << " bytes at: " << now << endl;
 	
 	CVideoChannel* channel = (CVideoChannel*) userDataIn;
 	
