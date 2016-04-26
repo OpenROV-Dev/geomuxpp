@@ -16,11 +16,15 @@ CVideoChannel::CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t chan
 	// Map command strings to API
 	RegisterAPIFunctions();
 	
+	GetAllSettings();
+	
 	// Register video callback
 	if( mxuvc_video_register_cb( m_channel, CVideoChannel::VideoCallback, this ) )
 	{
 		throw std::runtime_error( "Failed to register video callback!" );
 	}
+	
+	
 }
 
 CVideoChannel::~CVideoChannel(){}
@@ -68,6 +72,7 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_apiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
 	
 	m_apiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
+	
 	m_apiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
@@ -105,6 +110,47 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_apiMap.insert( std::make_pair( std::string("zone_exp"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
+
+	m_getAPIMap.insert( std::make_pair( std::string("framerate"), 				[this](){ this->GetFramerate(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("bitrate"), 				[this](){ this->GetBitrate(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("goplen"), 				[this](){ this->GetGOPLength(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this](){ this->GetGOPHierarchy(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("avc_profile"), 			[this](){ this->GetAVCProfile(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("avc_level"), 				[this](){ this->GetAVCLevel(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("maxnal"), 				[this](){ this->GetMaxNALSize(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("vui"), 					[this](){ this->GetVUI(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("pict_timing"), 			[this](){ this->GetPictTiming(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("max_framesize"), 			[this](){ this->GetMaxIFrameSize(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("compression_quality"),	[this](){ this->GetCompressionQuality(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("flip_vertical"), 			[this](){ this->GetFlipVertical(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this](){ this->GetFlipHorizontal(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("contrast"), 				[this](){ this->GetContrast(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("zoom"), 					[this](){ this->GetZoom(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("pan"), 					[this](){ this->GetPan(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("tilt"), 					[this](){ this->GetTilt(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("pantilt"), 				[this](){ this->GetPantilt(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("brightness"), 			[this](){ this->GetBrightness(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("hue"), 					[this](){ this->GetHue(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("gamma"), 					[this](){ this->GetGamma(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("saturation"), 			[this](){ this->GetSaturation(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("gain"), 					[this](){ this->GetGain(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("sharpness"), 				[this](){ this->GetSharpness(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this](){ this->GetMaxAnalogGain(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("histogram_eq"), 			[this](){ this->GetHistogramEQ(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this](){ this->GetSharpenFilter(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("min_exp_framerate"), 		[this](){ this->GetMinAutoExposureFramerate(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("tf_strength"), 			[this](){ this->GetTemporalFilterStrength(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this](){ this->GetGainMultiplier(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("exp"), 					[this](){ this->GetExposureMode(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("nf"), 					[this](){ this->GetNoiseFilterMode(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("wb"), 					[this](){ this->GetWhiteBalanceMode(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("wdr"), 					[this](){ this->GetWideDynamicRangeMode(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("zone_exp"), 				[this](){ this->GetZoneExposure(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("zone_wb"), 				[this](){ this->GetZoneWhiteBalance(); } ) );
+	m_getAPIMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this](){ this->GetPowerLineFrequency(); } ) );
+
+
+
 }
 
 bool CVideoChannel::IsAlive()
@@ -968,22 +1014,22 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 // General
 void CVideoChannel::GetAllSettings()
 {
-	GetSensorSettings();
-	GetVideoSettings();
+	for ( auto it = m_getAPIMap.begin(); it != m_getAPIMap.end(); ++it )
+	{
+		try
+		{
+			it->second();
+		}
+		catch( const std::exception &e )
+		{
+			cerr << "Failed to get parameter in group: " << it->first << endl;
+		}
+	}
+
 	
 	// Publish updates
+	cout << "Settings: " << m_settings.dump() << endl;
 }
-
-void CVideoChannel::GetSensorSettings()
-{
-	
-}
-
-void CVideoChannel::GetVideoSettings()
-{
-	
-}
-
 
 void CVideoChannel::GetChannelInfo()
 {

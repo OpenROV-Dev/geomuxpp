@@ -18,6 +18,8 @@
 
 // Typedefs
 typedef std::unordered_map<std::string, std::function<void( const nlohmann::json &commandIn )>> TApiFunctionMap;
+typedef std::unordered_map<std::string, std::function<void()>> TGetAPIMap;
+
 
 class CVideoChannel
 {
@@ -36,6 +38,7 @@ private:
 	nlohmann::json 					m_settings;
 	
 	TApiFunctionMap 				m_apiMap;
+	TGetAPIMap 						m_getAPIMap;
 	CMuxer							m_muxer;
 	
 	static void VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn );
