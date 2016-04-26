@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 using namespace std;
+using namespace CpperoMQ;
 
 CMuxer::CMuxer( CpperoMQ::Context *contextIn, uint32_t channelIn, EVideoFormat formatIn )
 	: m_format( formatIn )
@@ -363,16 +364,15 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 
 	cout << "Writing muxed packet. Bytes: " << bytesAvailableIn << endl;
 
-	// try
-	// {
+	try
+	{
 		if( muxer->m_holdBuffer )
 		{
 			
 			if( !muxer->m_isComposingInitFrame )
 			{
-				// zmq::message_t topic( 4 );
-				// memcpy( topic.data(), "init", 4);
-				// muxer->m_zmqPublisher.send( topic, ZMQ_SNDMORE );
+				OutgoingMessage topic( "init" );
+				topic.send( muxer->m_dataPub, true );
 				
 				muxer->m_isComposingInitFrame = true;
 
@@ -380,9 +380,8 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 			}
 			else
 			{
-				// zmq::message_t payload( bytesAvailableIn );
-				// memcpy( payload.data(), (void*)avioBufferIn, bytesAvailableIn );
-				// muxer->m_zmqPublisher.send( payload );
+				OutgoingMessage payload( bytesAvailableIn, avioBufferIn );
+				payload.send( muxer->m_dataPub, false );
 				
 				muxer->m_isComposingInitFrame = false;
 				muxer->m_holdBuffer = false;
@@ -390,18 +389,18 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 		}
 		else
 		{
-			// zmq::message_t topic( 3 );
-			// memcpy( topic.data(), "geo", 3);
-			// muxer->m_zmqPublisher.send( topic, ZMQ_SNDMORE );
+			OutgoingMessage topic( "geo" );
+			topic.send( muxer->m_dataPub, true );
 			
-			//muxer->m_zmqPublisher.send((void*)avioBufferIn, bytesAvailableIn, 0 );	
+			OutgoingMessage payload( bytesAvailableIn, avioBufferIn );
+			payload.send( muxer->m_dataPub, false );
 		}
-	// }	
-	// catch (const zmq::error_t& e)
-	// {	
-	// 	std::string errStr = e.what();
-	// 	cerr << "caught error: " << errStr << endl;
-	// }
+	}	
+	catch (const std::exception &e)
+	{	
+		std::string errStr = e.what();
+		cerr << "caught error: " << errStr << endl;
+	}
 	
 	return bytesAvailableIn;	
 }

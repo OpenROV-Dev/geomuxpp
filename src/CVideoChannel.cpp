@@ -23,8 +23,6 @@ CVideoChannel::CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t chan
 	{
 		throw std::runtime_error( "Failed to register video callback!" );
 	}
-	
-	
 }
 
 CVideoChannel::~CVideoChannel(){}
@@ -1025,7 +1023,6 @@ void CVideoChannel::GetAllSettings()
 			cerr << "Failed to get parameter in group: " << it->first << endl;
 		}
 	}
-
 	
 	// Publish updates
 	cout << "Settings: " << m_settings.dump() << endl;
@@ -1060,7 +1057,7 @@ void CVideoChannel::GetChannelInfo()
 		m_settings[ "framerate" ] 			= info.framerate;
 		m_settings[ "goplen" ] 				= info.goplen;
 		m_settings[ "bitrate" ] 			= info.bitrate;
-		m_settings[ "compression_quality" ] 	= info.compression_quality;
+		m_settings[ "compression_quality" ] = info.compression_quality;
 		
 		// Profile
 		switch( info.profile )
