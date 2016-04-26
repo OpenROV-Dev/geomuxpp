@@ -2,12 +2,11 @@
 
 // Includes
 #include <mxuvc.h>
-#include <libmxcam.h>
-#include <zmq.hpp>
-#include <CpperoMQ/All.hpp>
 #include <json.hpp>
 
-#include "CVideoChannel.h"
+// Forward decs
+class CStatusPublisher;
+class CVideoChannel;
 
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
@@ -16,7 +15,7 @@ class CGC6500
 {
 public:
 	// Methods
-	CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn );
+	CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
 	virtual ~CGC6500();
 	
 	void SetDeviceOffset( const std::string &deviceOffsetIn );
@@ -28,14 +27,10 @@ private:
 	std::string 									m_deviceOffset;
 	std::vector<std::unique_ptr<CVideoChannel>> 	m_pChannels;
 	
-	CpperoMQ::PublishSocket 		*m_pGeomuxStatusPub;
-	
-	CpperoMQ::Context *m_pContext;
+	CpperoMQ::Context 								*m_pContext;
+	CStatusPublisher 								*m_pStatusPublisher;
 	
 	// Methods
 	void RegisterAPIMap();
 	void CreateChannels();
-	
-	void EmitStatus( const std::string &statusIn );
-	void EmitError( const std::string &errorIn );
 };

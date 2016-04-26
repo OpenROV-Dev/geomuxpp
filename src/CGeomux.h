@@ -4,6 +4,7 @@
 #include <CpperoMQ/All.hpp>
 
 #include "CApp.h"
+#include "CStatusPublisher.h"
 #include "CGC6500.h"
 
 class CGeomux : public CApp
@@ -18,10 +19,10 @@ public:
 private:
 	// Attributes
 	CpperoMQ::Context 			m_context;
-	CpperoMQ::PublishSocket 	m_geomuxStatusPub;
 	CpperoMQ::SubscribeSocket 	m_geomuxCmdSub;
 	
-	CGC6500 m_gc6500;
+	CStatusPublisher			m_statusPublisher;
+	CGC6500 					m_gc6500;
 	
 	// Methods
 	void Update();

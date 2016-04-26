@@ -42,7 +42,7 @@ public:
 	std::thread m_thread;
 
 	// Methods
-	CMuxer( CpperoMQ::Context *contextIn, uint32_t channelIn, EVideoFormat formatIn );
+	CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVideoFormat formatIn );
 	virtual ~CMuxer();
 	
 	// Methods

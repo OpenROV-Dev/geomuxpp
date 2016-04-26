@@ -12,21 +12,18 @@ using json = nlohmann::json;
 
 CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
-	, m_geomuxStatusPub( m_context.createPublishSocket() )
 	, m_geomuxCmdSub( m_context.createSubscribeSocket() )
-	, m_gc6500( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ), &m_context, &m_geomuxStatusPub )
+	, m_statusPublisher( &m_context )
+	, m_gc6500( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ), &m_context, &m_statusPublisher )
 {	
-	// Bind publisher and subscriber
-	m_geomuxStatusPub.bind( "ipc:///tmp/geomux_status.ipc" );
+	// Bind subscriber
 	m_geomuxCmdSub.bind( "ipc:///tmp/geomux_command.ipc" );
 	
 	// Subscribe to anything (needs to be valid json to survive parsing)
 	m_geomuxCmdSub.subscribe();
 }
 
-CGeomux::~CGeomux()
-{
-}
+CGeomux::~CGeomux(){ cout << "Cleaning up CGeomux" << endl; }
 
 void CGeomux::Run()
 {
@@ -34,10 +31,14 @@ void CGeomux::Run()
 	{	
 		cout << "Application Started." << endl;
 
+		m_statusPublisher.EmitStatus( "ready" );
+		
 		while( !m_quit )
 		{
 			Update();
 		}	
+		
+		m_statusPublisher.EmitStatus( "exiting" );
 
 		cout << "Application Ended." << endl;
 
@@ -85,34 +86,21 @@ void CGeomux::HandleMessages()
 	}
 	catch( const std::exception &e )
 	{
+		m_statusPublisher.EmitError( e.what() );
 		cerr << "Error handling message: " << e.what() << endl;
 		return;
 	}
 }
 
-void CGeomux::EmitStatus( const std::string &statusIn )
-{
-	// Create message
-	json status = { { "status", statusIn } };
-	
-	m_geomuxStatusPub.send( OutgoingMessage( status.dump().c_str() ) );
-}
-
-void CGeomux::EmitError( const std::string &errorIn )
-{
-	// Create message
-	json error = { { "error", errorIn } };
-	
-	m_geomuxStatusPub.send( OutgoingMessage( error.dump().c_str() ) );
-}
-
 void CGeomux::Shutdown()
 {
+	m_statusPublisher.EmitStatus( "shuttingDown" );
 	m_quit = true;
 }
 
 void CGeomux::Restart()
 {
+	m_statusPublisher.EmitStatus( "restarting" );
 	m_quit = true;
 	m_restart = true;
 }

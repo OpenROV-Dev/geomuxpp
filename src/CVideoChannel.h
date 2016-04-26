@@ -2,9 +2,6 @@
 
 // Includes
 #include <mxuvc.h>
-#include <libmxcam.h>
-
-#include <zmq.hpp>
 #include <CpperoMQ/All.hpp>
 #include <json.hpp>
 
@@ -12,6 +9,9 @@
 #include <functional>
 
 #include "CMuxer.h"
+
+// Forward decs
+class CStatusPublisher;
 
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
@@ -25,20 +25,25 @@ class CVideoChannel
 {
 public:
 	// Methods
-	CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t channelIn );
+	CVideoChannel( video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
 	virtual ~CVideoChannel();
 
 	bool IsAlive();
 	void HandleMessage( const nlohmann::json &commandIn );
 
 private:
+	
 	video_channel_t 				m_channel;
 	std::string						m_channelString;
+	std::string 					m_endpoint;
+	
+	CStatusPublisher 				*m_pStatusPublisher;
 	
 	nlohmann::json 					m_settings;
 	
 	TApiFunctionMap 				m_apiMap;
 	TGetAPIMap 						m_getAPIMap;
+	
 	CMuxer							m_muxer;
 	
 	static void VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn );
@@ -120,11 +125,10 @@ private:
 	///////////////
 	
 	// General
+	void PublishSettings();
 	void GetAllSettings();
-	void GetSensorSettings();
-	void GetVideoSettings();
-	void GetChannelInfo();
 	
+	void GetChannelInfo();
 	void GetFramerate();
 	void GetBitrate();
 	

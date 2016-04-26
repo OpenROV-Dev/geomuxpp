@@ -6,16 +6,15 @@
 using namespace std;
 using namespace CpperoMQ;
 
-CMuxer::CMuxer( CpperoMQ::Context *contextIn, uint32_t channelIn, EVideoFormat formatIn )
+CMuxer::CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVideoFormat formatIn )
 	: m_format( formatIn )
 	, m_pContext( contextIn )
 	, m_dataPub( m_pContext->createPublishSocket() )
 	, m_thread()
 	, m_killThread( false )
 {
-	// Create a pub binding for this muxer's video data based on the channel number
-	std::string temp( "ipc:///tmp/geomux_video" + std::to_string( channelIn ) + ".ipc" );
-	m_dataPub.bind( temp.c_str() );
+	// Bind the data publisher
+	m_dataPub.bind( endpointIn.c_str() );
 
 	// Start the muxer thread
 	m_thread = std::thread( &CMuxer::ThreadLoop, this );
@@ -23,13 +22,23 @@ CMuxer::CMuxer( CpperoMQ::Context *contextIn, uint32_t channelIn, EVideoFormat f
 
 CMuxer::~CMuxer()
 {
+	cout << "Cleaning up CMuxer" << endl;
+	
 	m_killThread = true;
 	
-	// TODO: Rework data signaling
-	// Send a notification to make sure the thread gets killed
-	m_inputBuffer.m_dataAvailableCondition.notify_one();
-	m_thread.join();
+	try
+	{
+		// TODO: Rework data signaling
+		// Send a notification to make sure the thread gets killed
+		m_inputBuffer.m_dataAvailableCondition.notify_one();
+		m_thread.join();
+	}
+	catch( const std::exception &e )
+	{
+		cerr << "Error cleaning up CMuxer: " << e.what() << endl;
+	}
 	
+	// TODO: Probably need to clean up more things
 	// Clean up libav structures
 	avformat_close_input( &m_pInputFormatContext );
 	avformat_close_input( &m_pOutputFormatContext );

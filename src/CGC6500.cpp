@@ -1,20 +1,25 @@
 // Includes
+#include <CpperoMQ/All.hpp>
+
 #include "CGC6500.h"
+#include "CVideoChannel.h"
+#include "CStatusPublisher.h"
 #include "Utility.h"
 
 extern "C" 
 { 
 	// FFmpeg
 	#include <libavformat/avformat.h>
-
 }
 
-CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn )
+using namespace std;
+
+CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn )
 	: m_deviceOffset( deviceOffsetIn )
-	, m_pGeomuxStatusPub( geomuxStatusPubIn )
 	, m_pContext( contextIn )
+	, m_pStatusPublisher( publisherIn )
 {
-	// Initialize libavcodec, and register all codecs and formats.
+	// Initialize libavcodec, and register all codecs and formats. We only want to do this once.
 	av_register_all();
 	
 	// Set a custom device offset
@@ -32,11 +37,10 @@ CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextI
 
 CGC6500::~CGC6500()
 {
+	cout << "Cleaning up CGC6500" << endl;
+	
 	// Deinit mxuvc
-	if( mxuvc_video_deinit() )
-	{
-		throw std::runtime_error( "Deinit failed" );
-	}
+	mxuvc_video_deinit();
 }
 
 void CGC6500::SetDeviceOffset( const std::string &deviceOffsetIn )
@@ -59,7 +63,7 @@ void CGC6500::CreateChannels()
 	//for( uint32_t i = 0; i < channelCount; ++i )
 	for( uint32_t i = 0; i < 1; ++i )
 	{
-		m_pChannels.push_back( util::make_unique<CVideoChannel>( m_pContext, (video_channel_t)i ) );
+		m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
 	}
 	
 	std::cout << "Channels created: " << m_pChannels.size() << std::endl;
@@ -85,12 +89,4 @@ void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 	{
 		std::cerr << "Error handling message: " << e.what() << std::endl;
 	}
-}
-void CGC6500::EmitStatus( const std::string &statusIn )
-{
-	
-}
-void CGC6500::EmitError( const std::string &errorIn )
-{
-	
 }
