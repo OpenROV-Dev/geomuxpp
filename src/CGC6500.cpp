@@ -9,8 +9,8 @@ extern "C"
 
 }
 
-CGC6500::CGC6500( CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn )
-	: m_deviceOffset( "0" )
+CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn )
+	: m_deviceOffset( deviceOffsetIn )
 	, m_pGeomuxStatusPub( geomuxStatusPubIn )
 	, m_pContext( contextIn )
 {
@@ -83,7 +83,7 @@ void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << "Error handling message: " << e.what() << std::endl;
 	}
 }
 void CGC6500::EmitStatus( const std::string &statusIn )

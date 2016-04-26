@@ -1,5 +1,5 @@
 // Includes
-#include <signal.h>
+#include <csignal>
 #include <unistd.h>
 #include <json.hpp>
 
@@ -14,14 +14,8 @@ CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
 	, m_geomuxStatusPub( m_context.createPublishSocket() )
 	, m_geomuxCmdSub( m_context.createSubscribeSocket() )
-	, m_gc6500( &m_context, &m_geomuxStatusPub )
-{
-	if( m_arguments.size() > 1 )
-	{
-		// Set the device offset for the gc6500 to the first argument
-		m_gc6500.SetDeviceOffset( m_arguments[ 1 ] );
-	}
-	
+	, m_gc6500( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ), &m_context, &m_geomuxStatusPub )
+{	
 	// Bind publisher and subscriber
 	m_geomuxStatusPub.bind( "ipc:///tmp/geomux_status.ipc" );
 	m_geomuxCmdSub.bind( "ipc:///tmp/geomux_command.ipc" );
@@ -51,23 +45,6 @@ void CGeomux::Run()
 	catch( const std::exception &e )
 	{
 		cerr << "Exception in Run(): " << e.what() << endl;
-	}
-}
-
-void CGeomux::HandleSignal( int signalIdIn )
-{
-	// Print a new line to offset ctrl text
-	std::cout << std::endl;
-
-	if( signalIdIn == SIGINT )
-	{
-		cout << "SIGINT Detected: Cleaning up gracefully..." << endl;
-		
-		Shutdown();
-	}
-	else
-	{
-		cout << "Unknown signal detected: Ignoring..." << endl;
 	}
 }
 

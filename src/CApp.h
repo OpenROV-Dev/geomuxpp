@@ -20,5 +20,4 @@ public:
 
 	// Pure virtuals - You must implement these in your application class
 	virtual void Run() = 0;
-	virtual void HandleSignal( int signalIdIn ) = 0;
 };

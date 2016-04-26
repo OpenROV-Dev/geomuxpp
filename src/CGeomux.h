@@ -14,7 +14,6 @@ public:
 	virtual ~CGeomux();
 
 	virtual void Run();
-	virtual void HandleSignal( int signalIdIn );
 
 private:
 	// Attributes

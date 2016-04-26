@@ -26,7 +26,10 @@ int main( int argc, char* argv[] )
 			std::cerr << "Exception in main: " << e.what() << std::endl;
 		}
 		
-		std::cout << "Restarting..." << std::endl;
+		if( restart )
+		{
+			std::cout << "Restarting..." << std::endl;
+		}
 	}
 	while( restart );
 

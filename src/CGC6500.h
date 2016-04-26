@@ -16,7 +16,7 @@ class CGC6500
 {
 public:
 	// Methods
-	CGC6500( CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn );
+	CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CpperoMQ::PublishSocket *geomuxStatusPubIn );
 	virtual ~CGC6500();
 	
 	void SetDeviceOffset( const std::string &deviceOffsetIn );

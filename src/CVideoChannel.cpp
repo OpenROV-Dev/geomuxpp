@@ -16,12 +16,9 @@ CVideoChannel::CVideoChannel( CpperoMQ::Context *contextIn, video_channel_t chan
 	// Map command strings to API
 	RegisterAPIFunctions();
 	
-	// LOG INFO ) << "Registering callback for channel: " << m_channel;
-	
 	// Register video callback
 	if( mxuvc_video_register_cb( m_channel, CVideoChannel::VideoCallback, this ) )
 	{
-		// LOG ERROR ) << "Registering callback!";
 		throw std::runtime_error( "Failed to register video callback!" );
 	}
 }
@@ -38,7 +35,7 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		// LOG ERROR ) << "VideoChannel Error: " << e.what();
+		cerr << "VideoChannel Error: " << e.what() << endl;
 	}
 }
 
@@ -66,59 +63,54 @@ void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bu
 void CVideoChannel::RegisterAPIFunctions()
 {
 	// Register callbacks in our handler map
-	m_apiMap.insert( std::make_pair( std::string("StartVideo"), 					[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("StopVideo"), 						[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetMultipleSettings"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetFramerate"), 					[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetBitrate"), 					[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("ForceIFrame"), 					[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetGOPLength"), 					[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetGOPHierarchy"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPHierarchy( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetAVCProfile"), 					[this]( const nlohmann::json &commandIn ){ this->SetAVCProfile( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetAVCLevel"), 					[this]( const nlohmann::json &commandIn ){ this->SetAVCLevel( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetMaxNALSize"), 					[this]( const nlohmann::json &commandIn ){ this->SetMaxNALSize( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("EnableVUI"), 						[this]( const nlohmann::json &commandIn ){ this->EnableVUI( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("EnablePictTiming"), 				[this]( const nlohmann::json &commandIn ){ this->EnablePictTiming( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetMaxIFrameSize"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxIFrameSize( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetCompressionQuality"), 			[this]( const nlohmann::json &commandIn ){ this->SetCompressionQuality( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("EnableFlipVertical"), 			[this]( const nlohmann::json &commandIn ){ this->EnableFlipVertical( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("EnableFlipHorizontal"), 			[this]( const nlohmann::json &commandIn ){ this->EnableFlipHorizontal( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetContrast"), 					[this]( const nlohmann::json &commandIn ){ this->SetContrast( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetZoom"), 						[this]( const nlohmann::json &commandIn ){ this->SetZoom( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetPan"), 						[this]( const nlohmann::json &commandIn ){ this->SetPan( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetTilt"), 						[this]( const nlohmann::json &commandIn ){ this->SetTilt( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetPantilt"), 					[this]( const nlohmann::json &commandIn ){ this->SetPantilt( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetBrightness"), 					[this]( const nlohmann::json &commandIn ){ this->SetBrightness( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetHue"), 						[this]( const nlohmann::json &commandIn ){ this->SetHue( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetGamma"), 						[this]( const nlohmann::json &commandIn ){ this->SetGamma( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetSaturation"), 					[this]( const nlohmann::json &commandIn ){ this->SetSaturation( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetGain"), 						[this]( const nlohmann::json &commandIn ){ this->SetGain( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetSharpness"), 					[this]( const nlohmann::json &commandIn ){ this->SetSharpness( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetMaxAnalogGain"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxAnalogGain( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetHistogramEQ"), 				[this]( const nlohmann::json &commandIn ){ this->SetHistogramEQ( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetSharpenFilter"), 				[this]( const nlohmann::json &commandIn ){ this->SetSharpenFilter( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetMinAutoExposureFramerate"), 	[this]( const nlohmann::json &commandIn ){ this->SetMinAutoExposureFramerate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetTemporalFilterStrength"), 		[this]( const nlohmann::json &commandIn ){ this->SetTemporalFilterStrength( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetGainMultiplier"), 				[this]( const nlohmann::json &commandIn ){ this->SetGainMultiplier( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetExposureMode"), 				[this]( const nlohmann::json &commandIn ){ this->SetExposureMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetNoiseFilterMode"), 			[this]( const nlohmann::json &commandIn ){ this->SetNoiseFilterMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetWhiteBalanceMode"), 			[this]( const nlohmann::json &commandIn ){ this->SetWhiteBalanceMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetWideDynamicRangeMode"), 		[this]( const nlohmann::json &commandIn ){ this->SetWideDynamicRangeMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetZoneExposure"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetZoneWhiteBalance"), 			[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("SetPowerLineFrequency"), 			[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
-}
-
-void CVideoChannel::GetVideoSettings()
-{
+	m_apiMap.insert( std::make_pair( std::string("video_start"), 			[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
 	
+	m_apiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this]( const nlohmann::json &commandIn ){ this->SetGOPHierarchy( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("avc_profile"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCProfile( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("avc_level"), 				[this]( const nlohmann::json &commandIn ){ this->SetAVCLevel( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("maxnal"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxNALSize( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("vui"), 					[this]( const nlohmann::json &commandIn ){ this->SetVUI( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("pict_timing"), 			[this]( const nlohmann::json &commandIn ){ this->SetPictTiming( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("max_framesize"), 			[this]( const nlohmann::json &commandIn ){ this->SetMaxIFrameSize( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("compression_quality"),	[this]( const nlohmann::json &commandIn ){ this->SetCompressionQuality( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("flip_vertical"), 			[this]( const nlohmann::json &commandIn ){ this->SetFlipVertical( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipHorizontal( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("contrast"), 				[this]( const nlohmann::json &commandIn ){ this->SetContrast( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("zoom"), 					[this]( const nlohmann::json &commandIn ){ this->SetZoom( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("pan"), 					[this]( const nlohmann::json &commandIn ){ this->SetPan( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("tilt"), 					[this]( const nlohmann::json &commandIn ){ this->SetTilt( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("pantilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetPantilt( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("brightness"), 			[this]( const nlohmann::json &commandIn ){ this->SetBrightness( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("hue"), 					[this]( const nlohmann::json &commandIn ){ this->SetHue( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("gamma"), 					[this]( const nlohmann::json &commandIn ){ this->SetGamma( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("saturation"), 			[this]( const nlohmann::json &commandIn ){ this->SetSaturation( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("gain"), 					[this]( const nlohmann::json &commandIn ){ this->SetGain( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("sharpness"), 				[this]( const nlohmann::json &commandIn ){ this->SetSharpness( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxAnalogGain( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("histogram_eq"), 			[this]( const nlohmann::json &commandIn ){ this->SetHistogramEQ( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this]( const nlohmann::json &commandIn ){ this->SetSharpenFilter( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("min_exp_framerate"), 		[this]( const nlohmann::json &commandIn ){ this->SetMinAutoExposureFramerate( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("tf_strength"), 			[this]( const nlohmann::json &commandIn ){ this->SetTemporalFilterStrength( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this]( const nlohmann::json &commandIn ){ this->SetGainMultiplier( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("exp"), 					[this]( const nlohmann::json &commandIn ){ this->SetExposureMode( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("nf"), 					[this]( const nlohmann::json &commandIn ){ this->SetNoiseFilterMode( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("wb"), 					[this]( const nlohmann::json &commandIn ){ this->SetWhiteBalanceMode( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("wdr"), 					[this]( const nlohmann::json &commandIn ){ this->SetWideDynamicRangeMode( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("zone_exp"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
 }
 
 bool CVideoChannel::IsAlive()
 { 
 	return false;
 }
-
 
 ///////////////////////////////////////
 // Public channel API
@@ -127,22 +119,17 @@ bool CVideoChannel::IsAlive()
 // General
 void CVideoChannel::StartVideo( const nlohmann::json &commandIn )
 {
-	// LOG INFO ) << "Starting channel: " << m_channel;
-	
 	mxuvc_video_set_vui( m_channel, 1 );
 	mxuvc_video_set_pict_timing( m_channel, 1);
 	
 	if( mxuvc_video_start( m_channel ) )
 	{
-		// LOG ERROR ) << "Ahhhh: " << m_channel;
 		throw std::runtime_error( "Command failed: StartVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 }
 
 void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
 {
-	// LOG INFO ) << "Stopping channel: " << m_channel;
-	
 	// Clear the video buffer
 	m_muxer.m_inputBuffer.Clear();
 	
@@ -154,9 +141,6 @@ void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
 
 void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
 {
-	// TODO
-	// Loop through all of the setting objects in the command, calling their API callbacks with that json field being the input to the API callback
-	
 	// cmd : chCmd
 	// ch: x
 	// chCmd: SetMultipleSettings
@@ -172,13 +156,12 @@ void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
 		}
 		catch( const std::exception &e )
 		{
-			// LOG ERROR ) << "Failed to set parameter in group: " << it.key();
+			cerr << "Failed to set parameter in group: " << it.key();
 		}
 	}
-	
-	// LOG INFO ) << "DONE";
 }
 
+// "value": 1-30
 void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )
 {
 	try
@@ -194,6 +177,7 @@ void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 100000-2000000
 void CVideoChannel::SetBitrate( const nlohmann::json &commandIn )
 {
 	try
@@ -218,6 +202,7 @@ void CVideoChannel::ForceIFrame( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-maxint
 void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
 {
 	try
@@ -234,6 +219,7 @@ void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-4
 void CVideoChannel::SetGOPHierarchy( const nlohmann::json &commandIn )
 {
 	try
@@ -249,6 +235,7 @@ void CVideoChannel::SetGOPHierarchy( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": "baseline" | "main" | "high"
 void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 {
 	try
@@ -284,6 +271,7 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 10-52
 void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
 {
 	try
@@ -299,6 +287,7 @@ void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-2000
 void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
 {
 	try
@@ -314,7 +303,8 @@ void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
 	}
 }
 
-void CVideoChannel::EnableVUI( const nlohmann::json &commandIn )
+// "value": true | false
+void CVideoChannel::SetVUI( const nlohmann::json &commandIn )
 {
 	try
 	{
@@ -328,7 +318,9 @@ void CVideoChannel::EnableVUI( const nlohmann::json &commandIn )
 		throw std::runtime_error( "Command failed: EnableVUI[" + m_channelString + "]: " + e.what() );
 	}
 }
-void CVideoChannel::EnablePictTiming( const nlohmann::json &commandIn )
+
+// "value": true | false
+void CVideoChannel::SetPictTiming( const nlohmann::json &commandIn )
 {
 	try
 	{
@@ -342,6 +334,8 @@ void CVideoChannel::EnablePictTiming( const nlohmann::json &commandIn )
 		throw std::runtime_error( "Command failed: EnablePictTiming[" + m_channelString + "]: " + e.what() );
 	}
 }
+
+// "value": 0-64000
 void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
 {
 	try
@@ -358,6 +352,7 @@ void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
 }
 
 // MJPEG
+// "value": 0-10000
 void CVideoChannel::SetCompressionQuality( const nlohmann::json &commandIn )
 {
 	try
@@ -373,8 +368,12 @@ void CVideoChannel::SetCompressionQuality( const nlohmann::json &commandIn )
 	}
 }
 
+// --------
 // Sensor
-void CVideoChannel::EnableFlipVertical( const nlohmann::json &commandIn )
+// --------
+
+// "value": true | false
+void CVideoChannel::SetFlipVertical( const nlohmann::json &commandIn )
 {
 	try
 	{
@@ -391,7 +390,8 @@ void CVideoChannel::EnableFlipVertical( const nlohmann::json &commandIn )
 	}
 }
 
-void CVideoChannel::EnableFlipHorizontal( const nlohmann::json &commandIn )
+// "value": true | false
+void CVideoChannel::SetFlipHorizontal( const nlohmann::json &commandIn )
 {
 	try
 	{
@@ -408,6 +408,7 @@ void CVideoChannel::EnableFlipHorizontal( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-200
 void CVideoChannel::SetContrast( const nlohmann::json &commandIn )
 {
 	try
@@ -423,6 +424,7 @@ void CVideoChannel::SetContrast( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-100
 void CVideoChannel::SetZoom( const nlohmann::json &commandIn )
 {
 	try
@@ -438,6 +440,7 @@ void CVideoChannel::SetZoom( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": -648000-648000 
 void CVideoChannel::SetPan( const nlohmann::json &commandIn )
 {
 	try
@@ -453,6 +456,7 @@ void CVideoChannel::SetPan( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": -648000-648000 
 void CVideoChannel::SetTilt( const nlohmann::json &commandIn )
 {
 	try
@@ -468,6 +472,11 @@ void CVideoChannel::SetTilt( const nlohmann::json &commandIn )
 	}
 }
 
+// "value":
+// {
+// 	"pan": -648000-648000 
+// 	"tilt": -648000-648000
+// }
 void CVideoChannel::SetPantilt( const nlohmann::json &commandIn )
 {
 	try
@@ -486,6 +495,7 @@ void CVideoChannel::SetPantilt( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": -255-255
 void CVideoChannel::SetBrightness( const nlohmann::json &commandIn )
 {
 	try
@@ -501,6 +511,7 @@ void CVideoChannel::SetBrightness( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": -18000-18000
 void CVideoChannel::SetHue( const nlohmann::json &commandIn )
 {
 	try
@@ -516,6 +527,7 @@ void CVideoChannel::SetHue( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 100-300
 void CVideoChannel::SetGamma( const nlohmann::json &commandIn )
 {
 	try
@@ -531,6 +543,7 @@ void CVideoChannel::SetGamma( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-200
 void CVideoChannel::SetSaturation( const nlohmann::json &commandIn )
 {
 	try
@@ -546,6 +559,7 @@ void CVideoChannel::SetSaturation( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 1-100
 void CVideoChannel::SetGain( const nlohmann::json &commandIn )
 {
 	try
@@ -561,6 +575,7 @@ void CVideoChannel::SetGain( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 1-100
 void CVideoChannel::SetSharpness( const nlohmann::json &commandIn )
 {
 	try
@@ -576,6 +591,7 @@ void CVideoChannel::SetSharpness( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-15
 void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &commandIn )
 {
 	try
@@ -591,6 +607,7 @@ void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": true | false
 void CVideoChannel::SetHistogramEQ( const nlohmann::json &commandIn )
 {
 	try
@@ -608,6 +625,7 @@ void CVideoChannel::SetHistogramEQ( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-2
 void CVideoChannel::SetSharpenFilter( const nlohmann::json &commandIn )
 {
 	try
@@ -623,6 +641,7 @@ void CVideoChannel::SetSharpenFilter( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-30
 void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &commandIn )
 {
 	try
@@ -638,6 +657,7 @@ void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &commandIn
 	}
 }
 
+// "value": 0-7
 void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &commandIn )
 {
 	try
@@ -653,6 +673,7 @@ void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": 0-256
 void CVideoChannel::SetGainMultiplier( const nlohmann::json &commandIn )
 {
 	try
@@ -668,29 +689,34 @@ void CVideoChannel::SetGainMultiplier( const nlohmann::json &commandIn )
 	}
 }
 
+// "value":
+// {
+// 	"sel": "auto" | "manual"
+// 	"value": 0-255
+// }
 void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
 {
 	try
 	{
-		exp_set_t exposureMode;
-		uint16_t exposureTime = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		exp_set_t sel;
+		uint16_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "auto" )
 		{
-			exposureMode = EXP_AUTO;
+			sel = EXP_AUTO;
 		}
 		else if( mode == "manual" )
 		{
-			exposureMode = EXP_MANUAL;
-			exposureTime = commandIn[ "exposureTime" ].get<uint16_t>();
+			sel = EXP_MANUAL;
+			value = commandIn[ "value" ].get<uint16_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid exposure mode" );
 		}
 		
-		if( mxuvc_video_set_exp( m_channel, exposureMode, exposureTime ) )
+		if( mxuvc_video_set_exp( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -702,29 +728,34 @@ void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
 		
 }
 
+// "value":
+// {
+// 	"sel": "auto" | "manual"
+// 	"value": 0-100
+// }
 void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
 {
 	try
 	{
-		noise_filter_mode_t filterMode;
-		uint16_t filterStrength = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		noise_filter_mode_t sel;
+		uint16_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "auto" )
 		{
-			filterMode = NF_MODE_AUTO;
+			sel = NF_MODE_AUTO;
 		}
 		else if( mode == "manual" )
 		{
-			filterMode = NF_MODE_MANUAL;
-			filterStrength = commandIn[ "filterStrength" ].get<uint16_t>();
+			sel = NF_MODE_MANUAL;
+			value = commandIn[ "value" ].get<uint16_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid filter mode" );
 		}
 		
-		if( mxuvc_video_set_nf( m_channel, filterMode, filterStrength ) )
+		if( mxuvc_video_set_nf( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -735,29 +766,34 @@ void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
 	}
 }
 
+// "value":
+// {
+// 	"sel": "auto" | "manual"
+// 	"value": 2800-6500
+// }
 void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
 {
 	try
 	{
-		white_balance_mode_t wbMode;
-		uint16_t temperature = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		white_balance_mode_t sel;
+		uint16_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "auto" )
 		{
-			wbMode = WB_MODE_AUTO;
+			sel = WB_MODE_AUTO;
 		}
 		else if( mode == "manual" )
 		{
-			wbMode = WB_MODE_MANUAL;
-			temperature = commandIn[ "temperature" ].get<uint16_t>();
+			sel = WB_MODE_MANUAL;
+			value = commandIn[ "value" ].get<uint16_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid wb mode" );
 		}
 		
-		if( mxuvc_video_set_wb( m_channel, wbMode, temperature ) )
+		if( mxuvc_video_set_wb( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -768,33 +804,39 @@ void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
 	}
 }
 
+
+// "value":
+// {
+// 	"sel": "disabled" | "auto" | "manual"
+// 	"value": 0-255
+// }
 void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
 {
 	try
 	{
-		wdr_mode_t wdrMode;
-		uint8_t intensity = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		wdr_mode_t sel;
+		uint8_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "disable" )
 		{
-			wdrMode = WDR_DISABLE;
+			sel = WDR_DISABLE;
 		}
 		else if( mode == "auto" )
 		{
-			wdrMode = WDR_AUTO;
+			sel = WDR_AUTO;
 		}
 		else if( mode == "manual" )
 		{
-			wdrMode = WDR_MANUAL;
-			intensity = commandIn[ "intensity" ].get<uint8_t>();
+			sel = WDR_MANUAL;
+			value = commandIn[ "value" ].get<uint8_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid wb mode" );
 		}
 		
-		if( mxuvc_video_set_wdr( m_channel, wdrMode, intensity ) )
+		if( mxuvc_video_set_wdr( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -805,29 +847,35 @@ void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
 	}
 }
 
+
+// "value":
+// {
+// 	"sel": "enabled" | "disabled"
+// 	"value": 0-62
+// }
 void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
 {
 	try
 	{
-		zone_exp_set_t enableZoneExp;
-		uint16_t expValue = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		zone_exp_set_t sel;
+		uint16_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "disable" )
 		{
-			enableZoneExp = ZONE_EXP_DISABLE;
+			sel = ZONE_EXP_DISABLE;
 		}
 		else if( mode == "enable" )
 		{
-			enableZoneExp = ZONE_EXP_ENABLE;
-			expValue = commandIn[ "expValue" ].get<uint16_t>();
+			sel = ZONE_EXP_ENABLE;
+			value = commandIn[ "value" ].get<uint16_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid zone exp mode" );
 		}
 		
-		if( mxuvc_video_set_zone_exp( m_channel, enableZoneExp, expValue ) )
+		if( mxuvc_video_set_zone_exp( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -838,29 +886,34 @@ void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
 	}
 }
 
+// "value":
+// {
+// 	"sel": "enabled" | "disabled"
+// 	"value": 0-63
+// }
 void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
 {
 	try
 	{
-		zone_wb_set_t enableZoneWb;
-		uint16_t wbValue = 0;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		zone_wb_set_t sel;
+		uint16_t value = 0;
+		std::string mode = commandIn[ "sel" ].get<std::string>();
 		
 		if( mode == "disable" )
 		{
-			enableZoneWb = ZONE_WB_DISABLE;
+			sel = ZONE_WB_DISABLE;
 		}
 		else if( mode == "enable" )
 		{
-			enableZoneWb = ZONE_WB_ENABLE;
-			wbValue = commandIn[ "wbValue" ].get<uint16_t>();
+			sel = ZONE_WB_ENABLE;
+			value = commandIn[ "value" ].get<uint16_t>();
 		}
 		else
 		{
 			throw std::runtime_error( "Invalid zone wb mode" );
 		}
 		
-		if( mxuvc_video_set_zone_wb( m_channel, enableZoneWb, wbValue ) )
+		if( mxuvc_video_set_zone_wb( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
@@ -871,14 +924,15 @@ void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
 	}
 }
 
+// "value": "disabled" | "50HZ" | "60HZ"
 void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 {
 	try
 	{
 		pwr_line_freq_mode_t pwrMode;
-		std::string mode = commandIn[ "mode" ].get<std::string>();
+		std::string mode = commandIn.get<std::string>();
 		
-		if( mode == "disable" )
+		if( mode == "disabled" )
 		{
 			pwrMode = PWR_LINE_FREQ_MODE_DISABLE;
 		}
@@ -904,5 +958,696 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 	catch( const std::exception &e )
 	{
 		throw std::runtime_error( "Command failed: SetPowerLineFrequency[" + m_channelString + "]: " + e.what() );
+	}
+}
+
+///////////////
+// Get API
+///////////////
+
+// General
+void CVideoChannel::GetAllSettings()
+{
+	GetSensorSettings();
+	GetVideoSettings();
+	
+	// Publish updates
+}
+
+void CVideoChannel::GetSensorSettings()
+{
+	
+}
+
+void CVideoChannel::GetVideoSettings()
+{
+	
+}
+
+
+void CVideoChannel::GetChannelInfo()
+{
+	video_channel_info_t info;
+	
+	if( mxuvc_video_get_channel_info( m_channel, &info ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		// Format
+		switch( info.format )
+		{
+			case VID_FORMAT_H264_RAW:
+				m_settings[ "format" ] = "h264";
+				break;
+			case VID_FORMAT_MJPEG_RAW:
+				m_settings[ "format" ] = "mjpeg";
+				break;
+			default:
+				m_settings[ "format" ] = "unknown";
+				break;
+		}
+		
+		m_settings[ "width" ] 				= info.width;
+		m_settings[ "height" ] 				= info.height;
+		m_settings[ "framerate" ] 			= info.framerate;
+		m_settings[ "goplen" ] 				= info.goplen;
+		m_settings[ "bitrate" ] 			= info.bitrate;
+		m_settings[ "compression_quality" ] 	= info.compression_quality;
+		
+		// Profile
+		switch( info.profile )
+		{
+			case PROFILE_BASELINE:
+				m_settings[ "profile" ] = "baseline";
+				break;
+			case PROFILE_MAIN:
+				m_settings[ "profile" ] = "main";
+				break;
+			case PROFILE_HIGH:
+				m_settings[ "profile" ] = "high";
+				break;
+			default:
+				m_settings[ "profile" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetFramerate()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_framerate( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "framerate" ] = value;
+	}
+}
+
+void CVideoChannel::GetBitrate()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_bitrate( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "bitrate" ] = value;
+	}
+}
+
+
+// H264
+void CVideoChannel::GetGOPLength()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_goplen( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "goplen" ] = value;
+	}
+}
+
+void CVideoChannel::GetGOPHierarchy()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_gop_hierarchy_level( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "gop_hierarchy_level" ] = value;
+	}
+}
+
+void CVideoChannel::GetAVCProfile()
+{
+	video_profile_t profile;
+	if( mxuvc_video_get_profile( m_channel, &profile ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( profile )
+		{
+			case PROFILE_BASELINE:
+				m_settings[ "profile" ] = "baseline";
+				break;
+			case PROFILE_MAIN:
+				m_settings[ "profile" ] = "main";
+				break;
+			case PROFILE_HIGH:
+				m_settings[ "profile" ] = "high";
+				break;
+			default:
+				m_settings[ "profile" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetAVCLevel()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_avc_level( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "avc_level" ] = value;
+	}
+}
+
+void CVideoChannel::GetMaxNALSize()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_maxnal( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "maxnal" ] = value;
+	}
+}
+
+void CVideoChannel::GetVUI()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_vui( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "vui" ] = (bool)value;
+	}
+}
+
+void CVideoChannel::GetPictTiming()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_pict_timing( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "pict_timing" ] = (bool)value;
+	}
+}
+
+void CVideoChannel::GetMaxIFrameSize()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_max_framesize( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "max_framesize" ] = value;
+	}
+}
+
+
+// MJPEG
+void CVideoChannel::GetCompressionQuality()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_compression_quality( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "compression_quality" ] = value;
+	}
+}
+
+// Sensor
+void CVideoChannel::GetFlipVertical()
+{
+	video_flip_t flip;
+	if( mxuvc_video_get_flip_vertical( m_channel, &flip ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		m_settings[ "flip_vertical" ] = ( flip == FLIP_ON ? true : false );
+	}
+}
+
+void CVideoChannel::GetFlipHorizontal()
+{
+	video_flip_t flip;
+	if( mxuvc_video_get_flip_horizontal( m_channel, &flip ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		m_settings[ "flip_horizontal" ] = ( flip == FLIP_ON ? true : false );
+	}
+}
+
+void CVideoChannel::GetContrast()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_contrast( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "contrast" ] = value;
+	}
+}
+
+void CVideoChannel::GetZoom()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_zoom( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "zoom" ] = value;
+	}
+}
+
+void CVideoChannel::GetPan()
+{
+	int32_t value;
+	
+	if( mxuvc_video_get_pan( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "pan" ] = value;
+	}
+}
+
+void CVideoChannel::GetTilt()
+{
+	int32_t value;
+	
+	if( mxuvc_video_get_tilt( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "tilt" ] = value;
+	}
+}
+
+void CVideoChannel::GetPantilt()
+{
+	int32_t pan;
+	int32_t tilt;
+	
+	if( mxuvc_video_get_pantilt( m_channel, &pan, &tilt ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "pan" ] = pan;
+		m_settings[ "tilt" ] = tilt;
+	}
+}
+
+void CVideoChannel::GetBrightness()
+{
+	int16_t value;
+	
+	if( mxuvc_video_get_brightness( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "brightness" ] = value;
+	}
+}
+
+void CVideoChannel::GetHue()
+{
+	int16_t value;
+	
+	if( mxuvc_video_get_hue( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "hue" ] = value;
+	}
+}
+
+void CVideoChannel::GetGamma()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_gamma( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "gamma" ] = value;
+	}
+}
+
+void CVideoChannel::GetSaturation()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_saturation( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "saturation" ] = value;
+	}
+}
+
+void CVideoChannel::GetGain()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_gain( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "gain" ] = value;
+	}
+}
+
+void CVideoChannel::GetSharpness()
+{
+	uint16_t value;
+	
+	if( mxuvc_video_get_sharpness( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "sharpness" ] = value;
+	}
+}
+
+void CVideoChannel::GetMaxAnalogGain()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_max_analog_gain( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "max_analog_gain" ] = value;
+	}
+}
+
+void CVideoChannel::GetHistogramEQ()
+{
+	histo_eq_t histo;
+	if( mxuvc_video_get_histogram_eq( m_channel, &histo ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		m_settings[ "histogram_eq" ] = ( histo == HISTO_EQ_ON ? true : false );
+	}
+}
+
+void CVideoChannel::GetSharpenFilter()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_sharpen_filter( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "sharpen_filter" ] = value;
+	}
+}
+
+void CVideoChannel::GetMinAutoExposureFramerate()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_min_exp_framerate( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "min_exp_framerate" ] = value;
+	}
+}
+
+void CVideoChannel::GetTemporalFilterStrength()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_tf_strength( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "tf_strength" ] = value;
+	}
+}
+
+void CVideoChannel::GetGainMultiplier()
+{
+	uint32_t value;
+	
+	if( mxuvc_video_get_gain_multiplier( m_channel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{
+		m_settings[ "gain_multiplier" ] = value;
+	}
+}
+
+void CVideoChannel::GetExposureMode()
+{
+	exp_set_t sel;
+	uint16_t value;
+	if( mxuvc_video_get_exp( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case EXP_AUTO:
+				m_settings[ "exp" ] = { { "sel", "auto" }, { "value", value } };
+				break;
+			case EXP_MANUAL:
+				m_settings[ "exp" ] = { { "sel", "manual" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "exp" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetNoiseFilterMode()
+{
+	noise_filter_mode_t sel;
+	uint16_t value;
+	if( mxuvc_video_get_nf( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case NF_MODE_AUTO:
+				m_settings[ "nf" ] = { { "sel", "auto" }, { "value", value } };
+				break;
+			case NF_MODE_MANUAL:
+				m_settings[ "nf" ] = { { "sel", "manual" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "nf" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetWhiteBalanceMode()
+{
+	white_balance_mode_t sel;
+	uint16_t value;
+	if( mxuvc_video_get_wb( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case WB_MODE_AUTO:
+				m_settings[ "wb" ] = { { "sel", "auto" }, { "value", value } };
+				break;
+			case WB_MODE_MANUAL:
+				m_settings[ "wb" ] = { { "sel", "manual" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "wb" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetWideDynamicRangeMode()
+{
+	wdr_mode_t sel;
+	uint8_t value;
+	if( mxuvc_video_get_wdr( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case WDR_AUTO:
+				m_settings[ "wdr" ] = { { "sel", "auto" }, { "value", value } };
+				break;
+			case WDR_MANUAL:
+				m_settings[ "wdr" ] = { { "sel", "manual" }, { "value", value } };
+				break;
+			case WDR_DISABLE:
+				m_settings[ "wdr" ] = { { "sel", "disabled" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "wdr" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetZoneExposure()
+{
+	zone_exp_set_t sel;
+	uint16_t value;
+	if( mxuvc_video_get_zone_exp( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case ZONE_EXP_DISABLE:
+				m_settings[ "zone_exp" ] = { { "sel", "disabled" }, { "value", value } };
+				break;
+			case ZONE_EXP_ENABLE:
+				m_settings[ "zone_exp" ] = { { "sel", "enabled" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "zone_exp" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetZoneWhiteBalance()
+{
+	zone_wb_set_t sel;
+	uint16_t value;
+	if( mxuvc_video_get_zone_wb( m_channel, &sel, &value ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( sel )
+		{
+			case ZONE_WB_DISABLE:
+				m_settings[ "zone_wb" ] = { { "sel", "disabled" }, { "value", value } };
+				break;
+			case ZONE_WB_ENABLE:
+				m_settings[ "zone_wb" ] = { { "sel", "enabled" }, { "value", value } };
+				break;
+			default:
+				m_settings[ "zone_wb" ] = "unknown";
+				break;
+		}
+	}
+}
+
+void CVideoChannel::GetPowerLineFrequency()
+{
+	pwr_line_freq_mode_t mode;
+	if( mxuvc_video_get_pwr_line_freq( m_channel, &mode ) )
+	{
+		throw std::runtime_error( "MXUVC Failure" );
+	}
+	else
+	{	
+		switch( mode )
+		{
+			case PWR_LINE_FREQ_MODE_DISABLE:
+				m_settings[ "pwr_line_freq" ] = "disabled";
+				break;
+			case PWR_LINE_FREQ_MODE_50HZ:
+				m_settings[ "pwr_line_freq" ] = "50HZ";
+				break;
+			case PWR_LINE_FREQ_MODE_60HZ:
+				m_settings[ "pwr_line_freq" ] = "60HZ";
+				break;
+			default:
+				m_settings[ "pwr_line_freq" ] = "unknown";
+				break;
+		}
 	}
 }
