@@ -7,11 +7,11 @@ using namespace std;
 using namespace CpperoMQ;
 
 CMuxer::CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVideoFormat formatIn )
-	: m_format( formatIn )
+	: m_killThread( false )
+	, m_thread()
+	, m_format( formatIn )
 	, m_pContext( contextIn )
 	, m_dataPub( m_pContext->createPublishSocket() )
-	, m_thread()
-	, m_killThread( false )
 {
 	// Bind the data publisher
 	m_dataPub.bind( endpointIn.c_str() );
@@ -380,7 +380,7 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 			
 			if( !muxer->m_isComposingInitFrame )
 			{
-				OutgoingMessage topic( "init" );
+				OutgoingMessage topic( "i" );
 				topic.send( muxer->m_dataPub, true );
 				
 				muxer->m_isComposingInitFrame = true;
@@ -398,7 +398,7 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 		}
 		else
 		{
-			OutgoingMessage topic( "geo" );
+			OutgoingMessage topic( "v" );
 			topic.send( muxer->m_dataPub, true );
 			
 			OutgoingMessage payload( bytesAvailableIn, avioBufferIn );
