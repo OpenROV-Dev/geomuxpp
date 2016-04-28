@@ -67,7 +67,7 @@ void CGeomux::HandleMessages()
 			json message = json::parse( string( msg.charData(), msg.size() ) );
 			
 			// Pass json message to processor
-			if( message.at( "cmd" ) == "shutdown" )
+			if( message.at( "cmd" ) == "shutdown" ) 
 			{
 				Shutdown();
 				break;

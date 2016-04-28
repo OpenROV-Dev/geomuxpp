@@ -28,9 +28,6 @@ private:
 	void Update();
 	void HandleMessages();
 	
-	void EmitStatus( const std::string &statusIn );
-	void EmitError( const std::string &errorIn );
-	
 	void Shutdown();
 	void Restart();
 };

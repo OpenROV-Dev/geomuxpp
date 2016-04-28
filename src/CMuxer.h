@@ -15,6 +15,7 @@ extern "C"
 	#include <libavutil/channel_layout.h>
 	#include <libavutil/opt.h>
 	#include <libavutil/log.h>
+	#include <libavutil/time.h>
 	#include <libavutil/mathematics.h>
 	#include <libavutil/timestamp.h>
 	#include "libavutil/pixfmt.h"
@@ -23,6 +24,7 @@ extern "C"
 	#include <libswresample/swresample.h>
 	#include <libavformat/avio.h>
 	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
 }
 
 enum class EVideoFormat
@@ -37,9 +39,9 @@ class CMuxer
 public:
 	CVideoBuffer 		m_inputBuffer;
 	
-	std::atomic<bool> m_killThread;
+	std::atomic<bool> 	m_killThread;
 	
-	std::thread m_thread;
+	std::thread 		m_thread;
 
 	// Methods
 	CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVideoFormat formatIn );
@@ -56,6 +58,9 @@ public:
 	CpperoMQ::PublishSocket 	m_dataPub;
 	
 	size_t				m_avioContextBufferSize		= 4000000; // ~4mb
+	
+	int64_t				m_timestamp					= 0;
+	int64_t				m_streamTimebase			= 0;
 
 	
 	bool				m_holdBuffer 				= false;

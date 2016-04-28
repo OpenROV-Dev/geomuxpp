@@ -18,8 +18,6 @@ public:
 	CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
 	virtual ~CGC6500();
 	
-	void SetDeviceOffset( const std::string &deviceOffsetIn );
-	
 	void HandleMessage( const nlohmann::json &commandIn );
 
 private:	
@@ -27,10 +25,11 @@ private:
 	std::string 									m_deviceOffset;
 	std::vector<std::unique_ptr<CVideoChannel>> 	m_pChannels;
 	
+	bool											m_gc6500Initialized = false;
+	
 	CpperoMQ::Context 								*m_pContext;
 	CStatusPublisher 								*m_pStatusPublisher;
 	
 	// Methods
-	void RegisterAPIMap();
 	void CreateChannels();
 };

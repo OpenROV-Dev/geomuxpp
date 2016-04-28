@@ -45,12 +45,12 @@ CMuxer::~CMuxer()
 	
     if( m_pInputAvioContext ) 
 	{
-        av_freep( &m_pInputAvioContext) ;
+        av_freep( &m_pInputAvioContext );
     }
 	
 	if( m_pOutputAvioContext ) 
 	{
-        av_freep( &m_pOutputAvioContext) ;
+        av_freep( &m_pOutputAvioContext );
     }
 }
 
@@ -63,6 +63,8 @@ void CMuxer::Initialize()
 	// Turn on all traces
 	av_log_set_level( AV_LOG_TRACE );
 	
+	cout << "Allocating input format context" << endl;
+	
 	// Allocate format context
 	if( !( m_pInputFormatContext = avformat_alloc_context() ) ) 
 	{
@@ -70,8 +72,12 @@ void CMuxer::Initialize()
 		return;
     }
 	
+	cout << "Allocating input avio buffer" << endl;
+	
 	// Allocate the buffer for the input AVIO context
 	m_pInputAvioContextBuffer = (uint8_t*)av_malloc( m_avioContextBufferSize );
+	
+	cout << "Allocating input avio context" << endl;
 	
 	// Associate the input AVIO context with the allocated input buffer and ReadPacket function
     m_pInputAvioContext = avio_alloc_context( m_pInputAvioContextBuffer, m_avioContextBufferSize, 0, this, &ReadPacket, NULL, NULL );
@@ -93,6 +99,8 @@ void CMuxer::Initialize()
 	// Output setup
 	//////////////////////////////////////////////////////////////
 	
+	cout << "Allocating output format context" << endl;
+	
 	// Allocate output format context for muxing to MP4
 	avformat_alloc_output_context2( &m_pOutputFormatContext, NULL, "mp4", NULL );
     if( !m_pOutputFormatContext ) 
@@ -101,8 +109,12 @@ void CMuxer::Initialize()
         return;
     }
 	
+	cout << "Allocating output avio buffer" << endl;
+	
 	// Allocate the buffer for the output AVIO context
 	m_pOutputAvioContextBuffer 	= (uint8_t*)av_malloc(m_avioContextBufferSize);
+	
+	cout << "Allocating output avio context" << endl;
 	
 	// Associate the output AVIO context with the allocated output buffer and WritePacket function
     m_pOutputAvioContext = avio_alloc_context( m_pOutputAvioContextBuffer, m_avioContextBufferSize, 1, this, NULL, &WritePacket, NULL );
@@ -129,6 +141,15 @@ void CMuxer::Update()
 		if( !m_pInputFormatContext->iformat )
 		{			
 			std::lock_guard<std::mutex> lock( m_inputBuffer.m_mutex );
+			
+			// // Check byte 11 to see if it is an SPS header
+			// if( m_inputBuffer.GetByte( 10 ) != 0x67 )
+			// {
+			// 	// Clear the buffer
+			// 	cout << "No SPS packet, clearing buffer." << endl;
+			// 	m_inputBuffer.Clear();
+			// 	return;
+			// }			
 			
 			AVProbeData probeData;
 			
@@ -161,7 +182,7 @@ void CMuxer::Update()
 		if( m_pInputFormatContext->iformat )
 		{	
 			// Successfully for the input format
-			cout << "Successfully acquired input format." << endl;
+			cout << "Successfully acquired input format. Opening input format context" << endl;
 			
 			// Open the format context. Codec type was already detected in prior step.
 			int ret = avformat_open_input( &m_pInputFormatContext, NULL, NULL, NULL );
@@ -171,7 +192,7 @@ void CMuxer::Update()
 				return;
 			}
 			else
-			{
+			{			
 				cout << "Input opened successfully!" << endl;
 				
 				m_formatAcquired = true;
@@ -184,6 +205,8 @@ void CMuxer::Update()
 					cerr << "Unable to find stream info!" << endl;
 					return;
 				}
+				
+				cout << "Dumping format info" << endl;
 				
 				// DEBUG
 				av_dump_format( m_pInputFormatContext, 0, 0, 0 );
@@ -224,6 +247,8 @@ void CMuxer::Update()
 					// Get the input stream
 					AVStream *in_stream = m_pInputFormatContext->streams[i];
 					
+					cout << "Creating output stream" << endl;
+					
 					// Create the output stream
 					AVStream *out_stream = avformat_new_stream( m_pOutputFormatContext, pCodec );
 					if(!out_stream) 
@@ -232,7 +257,7 @@ void CMuxer::Update()
 						return;
 					}
 					
-					cout << "Created output stream." << endl;
+					cout << "Copying codec context from input to output" << endl;
 			
 					// Copy the codec context from the input stream to the output stream, since we are just muxing to mp4.
 					ret = avcodec_copy_context( out_stream->codec, in_stream->codec );
@@ -240,7 +265,10 @@ void CMuxer::Update()
 					{
 						cerr << "Failed to copy context from input to output stream codec context" << endl;
 						return;
-					}			
+					}
+					
+					// Set the timebase
+					out_stream->time_base = in_stream->time_base;
 					
 					cout << "Copied input codec context to output codec context." << endl;	
 					
@@ -285,7 +313,11 @@ void CMuxer::Update()
 			{
 				return;
 			}
-	
+
+			packet.pts = packet.dts = av_rescale_q(av_gettime(), AV_TIME_BASE_Q, m_pInputFormatContext->streams[0]->time_base);
+
+			cout << "PTS: " << packet.pts << endl;
+			
 			// Write moof+dat with one frame in it
 			// Call the second time with a null packet to flush the buffer and trigger a write_packet call
 			ret = av_write_frame(m_pOutputFormatContext, &packet);
@@ -310,20 +342,17 @@ void CMuxer::ThreadLoop()
 	{
 		{
 			std::unique_lock<std::mutex> lock( m_inputBuffer.m_mutex );
-			while( m_inputBuffer.GetSize() == 0 )
-			{
-				if( m_killThread )
-				{
-					break;
-				}
-				
-				// Wait to be signaled that there is data
-				m_inputBuffer.m_dataAvailableCondition.wait( lock );
-			}
+
+			// Wait to be signaled that there is data
+			m_inputBuffer.m_dataAvailableCondition.wait( lock );
 		}
 		
-		// Run the muxer's update function
-		Update();
+		// Avoid update if spuriously woke up without any actual data
+		if( m_inputBuffer.GetSize() != 0 )
+		{
+			// Run the muxer's update function
+			Update();
+		}
 	}
 }
 

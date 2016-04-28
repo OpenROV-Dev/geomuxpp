@@ -20,6 +20,8 @@ public:
 	size_t GetRemainingCapacity();
 	size_t GetReservedSize();
 	
+	uint8_t GetByte( size_t indexIn );
+	
 	uint8_t* Begin();
 	uint8_t* End();
 	

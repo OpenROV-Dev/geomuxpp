@@ -46,6 +46,18 @@ void CVideoBuffer::Clear()
 	m_remainingCapacity = k_containerSize;
 }
 
+uint8_t CVideoBuffer::GetByte( size_t indexIn )
+{
+	if( indexIn >= k_containerSize )
+	{
+		return 0;
+	}
+	else
+	{
+		return m_data[ indexIn ];
+	}
+}
+
 bool CVideoBuffer::Write( uint8_t *rawBufferIn, size_t bufferSizeIn, bool shouldSignalConditionIn )
 {	
 	// Make sure input buffer exists

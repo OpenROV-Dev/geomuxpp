@@ -13,8 +13,10 @@ public:
 	
 	void EmitStatus( const std::string &statusIn );
 	void EmitError( const std::string &errorIn );
+	
 	void EmitSettings( const nlohmann::json &settingsIn );
 	void EmitChannelRegistration( uint32_t channelNumIn, const std::string &endpointPathIn, bool isOnlineIn );
+	// EmitHealth
 
 private:
 	// Attributes

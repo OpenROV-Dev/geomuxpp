@@ -31,6 +31,8 @@ CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextI
 		throw std::runtime_error( "Failed to initialize mxuvc using device offset: " + m_deviceOffset );
 	}
 	
+	m_gc6500Initialized = true;
+	
 	// Create channels
 	CreateChannels();
 }
@@ -39,14 +41,14 @@ CGC6500::~CGC6500()
 {
 	cout << "Cleaning up CGC6500" << endl;
 	
-	// Deinit mxuvc
-	mxuvc_video_deinit();
+	if( m_gc6500Initialized )
+	{
+		// Deinit mxuvc
+		mxuvc_video_deinit();
+	}
 }
 
-void CGC6500::SetDeviceOffset( const std::string &deviceOffsetIn )
-{
-	m_deviceOffset = deviceOffsetIn;
-}
+
 
 void CGC6500::CreateChannels()
 {
@@ -72,6 +74,8 @@ void CGC6500::CreateChannels()
 			cerr << "Failed to create channel " << i << ": " << e.what() << endl;
 		}
 	}
+	
+	// TODO: Throw here if no channels 
 	
 	std::cout << "Channels created: " << m_pChannels.size() << std::endl;
 }
