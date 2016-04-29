@@ -8,7 +8,7 @@ class CStatusPublisher
 {
 public:
 	// Methods
-	CStatusPublisher( CpperoMQ::Context *contextIn );
+	CStatusPublisher( const std::string &cameraOffsetIn, CpperoMQ::Context *contextIn );
 	virtual ~CStatusPublisher();
 	
 	void EmitStatus( const std::string &statusIn );
@@ -20,6 +20,10 @@ public:
 
 private:
 	// Attributes
+	std::string					m_cameraOffset;
+	
 	CpperoMQ::Context 			*m_pContext;
-	CpperoMQ::PublishSocket 	m_publisher;
+	CpperoMQ::PublishSocket 	m_statusPub;
+	CpperoMQ::RequestSocket 	m_geomuxRegRequester;
+	
 };

@@ -12,15 +12,12 @@ using json = nlohmann::json;
 
 CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
-	, m_geomuxCmdSub( m_context.createSubscribeSocket() )
-	, m_statusPublisher( &m_context )
-	, m_gc6500( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ), &m_context, &m_statusPublisher )
+	, m_cameraOffset( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ) )
+	, m_commandSubscriber( m_cameraOffset, &m_context )
+	, m_statusPublisher( m_cameraOffset, &m_context )
+	, m_gc6500( m_cameraOffset, &m_context, &m_statusPublisher )
 {	
-	// Bind subscriber
-	m_geomuxCmdSub.bind( "ipc:///tmp/geomux_command.ipc" );
 	
-	// Subscribe to anything (needs to be valid json to survive parsing)
-	m_geomuxCmdSub.subscribe();
 }
 
 CGeomux::~CGeomux(){ cout << "Cleaning up CGeomux" << endl; }
@@ -30,15 +27,11 @@ void CGeomux::Run()
 	try
 	{	
 		cout << "Application Started." << endl;
-
-		m_statusPublisher.EmitStatus( "ready" );
 		
 		while( !m_quit )
 		{
 			Update();
 		}	
-		
-		m_statusPublisher.EmitStatus( "exiting" );
 
 		cout << "Application Ended." << endl;
 
@@ -61,7 +54,7 @@ void CGeomux::HandleMessages()
 		// Get message
 		IncomingMessage msg;
 		
-		while( m_geomuxCmdSub.receive( msg ) )
+		while( m_commandSubscriber.m_geomuxCmdSub.receive( msg ) )
 		{
 			// Parse into json object
 			json message = json::parse( string( msg.charData(), msg.size() ) );

@@ -67,7 +67,7 @@ void CGC6500::CreateChannels()
 	{
 		try
 		{
-			m_pChannels.push_back( util::make_unique<CVideoChannel>( (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
+			m_pChannels.push_back( util::make_unique<CVideoChannel>( m_deviceOffset, (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
 		}
 		catch( const std::exception &e )
 		{

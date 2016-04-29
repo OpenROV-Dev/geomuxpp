@@ -25,7 +25,7 @@ class CVideoChannel
 {
 public:
 	// Methods
-	CVideoChannel( video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
+	CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
 	virtual ~CVideoChannel();
 
 	bool IsAlive();
@@ -34,6 +34,7 @@ public:
 private:
 	
 	video_channel_t 				m_channel;
+	std::string						m_cameraString;
 	std::string						m_channelString;
 	std::string 					m_endpoint;
 	

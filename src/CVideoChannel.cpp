@@ -9,10 +9,11 @@
 using namespace std;
 using json = nlohmann::json;
 
-CVideoChannel::CVideoChannel( video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn )
+CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn )
 	: m_channel( channelIn )
+	, m_cameraString( cameraOffsetIn )
 	, m_channelString( std::to_string( (int)m_channel ) )
-	, m_endpoint( std::string( "ipc:///tmp/geomux_video" + m_channelString + ".ipc" ) )
+	, m_endpoint( std::string( "ipc:///tmp/geomux_video" + m_cameraString + "_" + m_channelString + ".ipc" ) )
 	, m_pStatusPublisher( publisherIn )
 	, m_muxer( contextIn, m_endpoint, EVideoFormat::UNKNOWN )
 {
