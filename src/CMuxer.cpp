@@ -470,12 +470,14 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 	{
 		try
 		{
+			#ifdef DROP_ZMQ_FRAME
 			if( std::rand() % 100 == 0 )
 			{
 				std::cout << "Causing random frame failure" << endl;
 				muxer->m_framesFailed++;
 				return bytesAvailableIn;
 			}
+			#endif
 			
 			bool ret = true;
 			

@@ -75,14 +75,25 @@ bool CVideoBuffer::Write( uint8_t *rawBufferIn, size_t bufferSizeIn, bool should
 	// Lock
 	std::lock_guard<std::mutex> lock( m_mutex );
 	
+	// Increment framecounter
+	m_frameStats.m_frameAttempts++;
+	
+	#ifdef DROP_CAMERA_FRAME
+	if( std::rand() % 100 == 0 )
+	{
+		std::cout << "Causing random camera frame drop" << endl;
+		m_frameStats.m_frameFails += m_framesStored;
+		return false;
+	}
+	#endif
+	
 	// Calculate framerate (rough diagnostic)
 	m_frameStats.m_fps = ( 1000000.0f / (float)std::chrono::duration_cast<std::chrono::microseconds>( now - m_frameStats.m_lastWriteTime ).count() );
 	
 	// Set last write time
 	m_frameStats.m_lastWriteTime = std::move( now );
 	
-	// Increment framecounter
-	m_frameStats.m_frameAttempts++;
+	
 	
 	// Check capacity
 	if( bufferSizeIn > m_remainingCapacity )
