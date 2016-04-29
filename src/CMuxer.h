@@ -61,7 +61,14 @@ public:
 	
 	int64_t				m_timestamp					= 0;
 	int64_t				m_streamTimebase			= 0;
-
+	
+	TFrameStats			m_frameStats;
+	uint64_t			m_framesDelivered			= 0;
+	uint64_t			m_framesFailed				= 0;
+	
+	std::atomic<uint64_t> 	m_droppedFrames;
+	std::atomic<uint32_t> 	m_latency_us;
+	std::atomic<float>		m_fps;
 	
 	bool				m_holdBuffer 				= false;
 	bool				m_isComposingInitFrame 		= false;

@@ -90,6 +90,7 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_apiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &commandIn ){ this->PublishSettings( commandIn ); } ) );
+	m_apiMap.insert( std::make_pair( std::string("publish_health"), 		[this]( const nlohmann::json &commandIn ){ this->PublishHealthStats( commandIn ); } ) );
 	m_apiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
 	
 	m_apiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
@@ -1034,6 +1035,23 @@ void CVideoChannel::PublishSettings( const nlohmann::json &commandIn )
 	{
 		{ "chNum", (uint32_t)m_channel },
 		{ "settings", m_settings }
+	};
+	
+	m_pStatusPublisher->EmitSettings( settings );
+}
+
+void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
+{
+	json settings = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "stats", 
+			{
+				{ "fps", (float)m_muxer.m_fps },
+				{ "droppedFrames", (int)m_muxer.m_droppedFrames },
+				{ "latency_us", (int)m_muxer.m_latency_us }
+			}
+		}
 	};
 	
 	m_pStatusPublisher->EmitSettings( settings );

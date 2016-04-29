@@ -2,6 +2,8 @@
 #include "Utility.h"
 #include "CGeomux.h"
 
+#include "OptionParser.h"
+
 int main( int argc, char* argv[] )
 {	
 	bool restart = false;

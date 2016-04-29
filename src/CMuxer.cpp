@@ -2,6 +2,7 @@
 #include "CMuxer.h"
 #include <iostream>
 #include <unistd.h>
+#include <cstdlib>
 
 using namespace std;
 using namespace CpperoMQ;
@@ -12,12 +13,15 @@ CMuxer::CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVi
 	, m_format( formatIn )
 	, m_pContext( contextIn )
 	, m_dataPub( m_pContext->createPublishSocket() )
+	, m_droppedFrames( 0 )
 {
 	// Bind the data publisher
 	m_dataPub.bind( endpointIn.c_str() );
 
 	// Start the muxer thread
 	m_thread = std::thread( &CMuxer::ThreadLoop, this );
+	
+	std::srand( 0 );
 }
 
 CMuxer::~CMuxer()
@@ -61,7 +65,7 @@ void CMuxer::Initialize()
 	//////////////////////////////////////////////////////////////
 	
 	// Turn on all traces
-	av_log_set_level( AV_LOG_TRACE );
+	//av_log_set_level( AV_LOG_TRACE );
 	
 	cout << "Allocating input format context" << endl;
 	
@@ -294,8 +298,18 @@ void CMuxer::Update()
 					return;
 				}
 				
+				// Flush any buffered data so we can start fresh with the most recent frame
+				avio_flush( m_pInputAvioContext );
+				avformat_flush( m_pInputFormatContext );
+				
+				// Flush input buffer and clear write counts so we can start tracking dropped frames
+				m_inputBuffer.Clear();
+				m_inputBuffer.ClearWriteCounts();
+				
 				cout << "Ready to mux!" << endl;
 				
+				// TODO: Are there options on the input format context that I can change now to make av_read_frame faster?
+
 				// We can now proceed to mux and send all subsequent frames
 				m_canMux = true;
 			}
@@ -306,30 +320,41 @@ void CMuxer::Update()
 		if( m_canMux )
 		{
 			AVPacket packet;
+			int ret = 0;
 			
-			// Read a frame from the input buffer into a packet structure
-			int ret = av_read_frame( m_pInputFormatContext, &packet );
-			if (ret < 0)
+			// Process any frames stored in the aviocontext
+			while( true )
 			{
-				return;
-			}
+				// When there are no packets to process, this will break out of the loop
+				ret = av_read_frame( m_pInputFormatContext, &packet );
+				if (ret < 0)
+				{
+					return;
+				}
 
-			packet.pts = packet.dts = av_rescale_q(av_gettime(), AV_TIME_BASE_Q, m_pInputFormatContext->streams[0]->time_base);
-
-			cout << "PTS: " << packet.pts << endl;
+				// Set the timestamp for the packet
+				packet.pts = packet.dts = av_rescale_q( av_gettime(), AV_TIME_BASE_Q, m_pInputFormatContext->streams[0]->time_base );
 			
-			// Write moof+dat with one frame in it
-			// Call the second time with a null packet to flush the buffer and trigger a write_packet call
-			ret = av_write_frame(m_pOutputFormatContext, &packet);
-			ret |= av_write_frame(m_pOutputFormatContext, NULL );
-			if (ret < 0) 
-			{
-				cerr << "Error writing packet." << endl;
-				return;
+				// Write moof+dat with one frame in it
+				// Call the second time with a null packet to flush the buffer and trigger a write_packet call
+				ret = av_write_frame(m_pOutputFormatContext, &packet);
+				ret |= av_write_frame(m_pOutputFormatContext, NULL );
+				if (ret < 0) 
+				{
+					cerr << "Error writing packet." << endl;
+				}
+				
+				m_droppedFrames = m_frameStats.m_frameAttempts - m_framesDelivered;
+				m_latency_us = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::high_resolution_clock::now() - m_frameStats.m_lastWriteTime ).count();
+				m_fps = m_frameStats.m_fps;
+				
+				cout << "Dropped Frames: " << m_droppedFrames << endl;
+				cout << "Latency(us): " << m_latency_us << endl;
+				cout << "Framerate: " << m_fps << endl;
+				
+				// Cleanup
+				av_packet_unref( &packet );
 			}
-			
-			// Cleanup
-			av_packet_unref( &packet );
 		}
 	}
 }
@@ -340,6 +365,7 @@ void CMuxer::ThreadLoop()
 	
 	while( m_killThread == false )
 	{
+		// TODO: Method that is lower latency than the condition variable? 
 		{
 			std::unique_lock<std::mutex> lock( m_inputBuffer.m_mutex );
 
@@ -376,6 +402,10 @@ int CMuxer::ReadPacket( void *muxerIn, uint8_t *avioBufferOut, int avioBufferSiz
 		{
 			std::lock_guard<std::mutex> lock( muxer->m_inputBuffer.m_mutex );
 			
+			// Update our frame stats while we have a lock
+			muxer->m_frameStats = muxer->m_inputBuffer.m_frameStats;
+			
+			// Clear buffer
 			muxer->m_inputBuffer.Clear();
 		}
 			
@@ -387,10 +417,16 @@ int CMuxer::ReadPacket( void *muxerIn, uint8_t *avioBufferOut, int avioBufferSiz
 	{
 		std::lock_guard<std::mutex> lock( muxer->m_inputBuffer.m_mutex );
 		
+		// Update our frame stats while we have a lock
+		muxer->m_frameStats = muxer->m_inputBuffer.m_frameStats;
+		
+		// Copy data from input buffer to input AVIO context, then clear the buffer
 		memcpy( avioBufferOut, muxer->m_inputBuffer.Begin(), bytesToConsume );
 		muxer->m_inputBuffer.Clear();
+		
+		
 	}
-	
+
 	return bytesToConsume;
 }
 
@@ -400,13 +436,12 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 	// Convert opaque data to muxer pointer
 	CMuxer *muxer = (CMuxer*)muxerIn;
 
-	cout << "Writing muxed packet. Bytes: " << bytesAvailableIn << endl;
+	//cout << "Writing muxed packet. Bytes: " << bytesAvailableIn << endl;
 
-	try
+	if( muxer->m_holdBuffer )
 	{
-		if( muxer->m_holdBuffer )
+		try
 		{
-			
 			if( !muxer->m_isComposingInitFrame )
 			{
 				OutgoingMessage topic( "i" );
@@ -425,19 +460,55 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 				muxer->m_holdBuffer = false;
 			}
 		}
-		else
+		catch (const std::exception &e)
+		{	
+			std::string errStr = e.what();
+			cerr << "Exception sending init frame: " << errStr << endl;
+		}
+	}
+	else
+	{
+		try
 		{
+			if( std::rand() % 100 == 0 )
+			{
+				std::cout << "Causing random frame failure" << endl;
+				muxer->m_framesFailed++;
+				return bytesAvailableIn;
+			}
+			
+			bool ret = true;
+			
 			OutgoingMessage topic( "v" );
-			topic.send( muxer->m_dataPub, true );
+			ret &= topic.send( muxer->m_dataPub, true );
+			
+			if( !ret )
+			{
+				cerr << "Failed to send frame over zmq" << endl;
+				muxer->m_framesFailed++;
+				return bytesAvailableIn;
+			}
 			
 			OutgoingMessage payload( bytesAvailableIn, avioBufferIn );
-			payload.send( muxer->m_dataPub, false );
+			ret &= payload.send( muxer->m_dataPub, false );
+			
+			if( ret )
+			{
+				cout << "Delivered frame over zmq. Bytes: " << bytesAvailableIn << endl;
+				muxer->m_framesDelivered++;
+			}
+			else
+			{
+				cerr << "Failed to send frame over zmq" << endl;
+				muxer->m_framesFailed++;
+			}
 		}
-	}	
-	catch (const std::exception &e)
-	{	
-		std::string errStr = e.what();
-		cerr << "caught error: " << errStr << endl;
+		catch (const std::exception &e)
+		{	
+			muxer->m_framesFailed++;
+			std::string errStr = e.what();
+			cerr << "Exception sending video frame: " << errStr << endl;
+		}
 	}
 	
 	return bytesAvailableIn;	

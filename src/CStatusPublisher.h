@@ -16,7 +16,7 @@ public:
 	
 	void EmitSettings( const nlohmann::json &settingsIn );
 	void EmitChannelRegistration( uint32_t channelNumIn, const std::string &endpointPathIn, bool isOnlineIn );
-	// EmitHealth
+	void EmitChannelHealthStats( const nlohmann::json &healthStatsIn );
 
 private:
 	// Attributes

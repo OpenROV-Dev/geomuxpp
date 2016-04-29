@@ -50,3 +50,10 @@ void CStatusPublisher::EmitSettings( const nlohmann::json &settingsIn )
 	
 	m_publisher.send( OutgoingMessage( "channel_settings" ), OutgoingMessage( settingsIn.dump().c_str() ) );
 }
+
+void CStatusPublisher::EmitChannelHealthStats( const nlohmann::json &healthStatsIn )
+{
+	cout << "Health stats: " << healthStatsIn.dump().c_str() << endl;
+	
+	m_publisher.send( OutgoingMessage( "channel_health" ), OutgoingMessage( healthStatsIn.dump().c_str() ) );
+}

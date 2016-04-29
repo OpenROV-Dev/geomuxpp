@@ -78,6 +78,7 @@ private:
 	void SetFramerate( const nlohmann::json &commandIn );
 	void SetBitrate( const nlohmann::json &commandIn );
 	void PublishSettings( const nlohmann::json &commandIn );
+	void PublishHealthStats( const nlohmann::json &commandIn );
 	
 	// H264
 	void SetGOPLength( const nlohmann::json &commandIn );
