@@ -1,7 +1,7 @@
 #pragma once
 
 // Includes
-#include <geocamera/mxuvc.h>
+#include <mxuvc.h>
 #include <json.hpp>
 
 // Forward decs

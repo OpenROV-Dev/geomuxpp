@@ -1,7 +1,7 @@
 #pragma once
 
 // Includes
-#include <geocamera/mxuvc.h>
+#include <mxuvc.h>
 #include <CpperoMQ/All.hpp>
 #include <json.hpp>
 

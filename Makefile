@@ -68,10 +68,10 @@ TEST_TARGET =
 # --- LIBRARY CONFIGURATION
 
 # LDINCLUDES - Include paths for libraries, i.e. '-I/usr/local/include'
-LDINCLUDES = -I/usr/local/include
+LDINCLUDES = -I/usr/include/geocamera/
 
 # LDLIBPATHS - Lib paths for libraries, i.e. '-L/usr/local/lib'
-LDLIBPATHS = -L/usr/local/lib
+LDLIBPATHS = -L/usr/lib/geocamera/
 
 # LDFLAGS - Flags to be passed to the linker. Additional options will be added later based on build target
 LDFLAGS = $(LDLIBPATHS)
