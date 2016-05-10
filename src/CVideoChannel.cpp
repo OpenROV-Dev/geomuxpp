@@ -70,7 +70,7 @@ void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bu
 {
 	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 
-	cerr << "Input: " << bufferSizeIn << " bytes at: " << now << endl;
+	//cout << "Input: " << bufferSizeIn << " bytes at: " << now << endl;
 	
 	CVideoChannel* channel = (CVideoChannel*) userDataIn;
 	
