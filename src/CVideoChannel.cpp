@@ -1043,7 +1043,7 @@ void CVideoChannel::PublishSettings( const nlohmann::json &commandIn )
 
 void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
 {
-	json settings = 
+	json health = 
 	{
 		{ "chNum", (uint32_t)m_channel },
 		{ "stats", 
@@ -1055,7 +1055,7 @@ void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
 		}
 	};
 	
-	m_pStatusPublisher->EmitSettings( settings );
+	m_pStatusPublisher->EmitChannelHealthStats( health );
 }
 
 void CVideoChannel::GetAllSettings()
