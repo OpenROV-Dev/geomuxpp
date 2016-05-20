@@ -41,26 +41,29 @@ private:
 	CStatusPublisher 				*m_pStatusPublisher;
 	
 	nlohmann::json 					m_settings;
+	nlohmann::json 					m_api;
 	
-	TApiFunctionMap 				m_apiMap;
-	TGetAPIMap 						m_getAPIMap;
+	TApiFunctionMap 				m_publicApiMap;
+	TGetAPIMap 						m_privateApiMap;
 	
 	CMuxer							m_muxer;
 	
 	static void VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn );
 	
-	///////////////////////////////////////
-	// Private Channel API
-	///////////////////////////////////////
+	void LoadAPI();
 	void RegisterAPIFunctions();
 	
 	///////////////////////////////////////
 	// Public channel API
 	///////////////////////////////////////
 	
-	//---------
+	//--------------------
 	// Action API
-	//---------
+	
+	// Publish commands
+	void PublishSettings( const nlohmann::json &commandIn );
+	void PublishHealthStats( const nlohmann::json &commandIn );
+	void PublishAPI( const nlohmann::json &commandIn );
 	
 	// General
 	void StartVideo( const nlohmann::json &commandIn );
@@ -69,17 +72,15 @@ private:
 	// H264
 	void ForceIFrame( const nlohmann::json &commandIn );
 	
-	//---------
-	// Set API
-	//---------
+	//--------------------
+	// Settings API
+	
+	// This command accepts a json object with multiple settings and sets them all at once
+	void SetMultipleSettings( const nlohmann::json &commandIn );		
 	
 	// General
-	void SetMultipleSettings( const nlohmann::json &commandIn );		// This command accepts a json object with multiple settings and sets them all at once
-	
 	void SetFramerate( const nlohmann::json &commandIn );
 	void SetBitrate( const nlohmann::json &commandIn );
-	void PublishSettings( const nlohmann::json &commandIn );
-	void PublishHealthStats( const nlohmann::json &commandIn );
 	
 	// H264
 	void SetGOPLength( const nlohmann::json &commandIn );
@@ -123,10 +124,9 @@ private:
 	void SetPowerLineFrequency( const nlohmann::json &commandIn );
 	
 	
-	
-	///////////////
-	// Get API
-	///////////////
+	///////////////////////////////////////
+	// Private channel API
+	///////////////////////////////////////
 	
 	// General
 	void GetAllSettings();

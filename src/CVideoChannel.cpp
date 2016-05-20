@@ -53,7 +53,7 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 	try
 	{
 		// Call specified channel command with appropriate API function using passed in value
-		m_apiMap.at( commandIn.at( "chCmd" ).get<std::string>() )( commandIn.at( "value" ) );
+		m_publicApiMap.at( commandIn.at( "chCmd" ).get<std::string>() )( commandIn.at( "value" ) );
 	}
 	catch( const std::exception &e )
 	{
@@ -86,94 +86,93 @@ void CVideoChannel::RegisterAPIFunctions()
 {
 	// Register callbacks in our handler map
 	
-	// SET API
-	m_apiMap.insert( std::make_pair( std::string("video_start"), 			[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &commandIn ){ this->PublishSettings( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("publish_health"), 		[this]( const nlohmann::json &commandIn ){ this->PublishHealthStats( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
+	// Public API
+	m_publicApiMap.insert( std::make_pair( std::string("video_start"), 			[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("force_iframe"), 		[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 	[this]( const nlohmann::json &commandIn ){ this->PublishSettings( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 		[this]( const nlohmann::json &commandIn ){ this->PublishHealthStats( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 			[this]( const nlohmann::json &commandIn ){ this->PublishAPI( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
 	
-	m_apiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this]( const nlohmann::json &commandIn ){ this->SetGOPHierarchy( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("avc_profile"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCProfile( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("avc_level"), 				[this]( const nlohmann::json &commandIn ){ this->SetAVCLevel( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("maxnal"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxNALSize( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("vui"), 					[this]( const nlohmann::json &commandIn ){ this->SetVUI( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("pict_timing"), 			[this]( const nlohmann::json &commandIn ){ this->SetPictTiming( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("max_framesize"), 			[this]( const nlohmann::json &commandIn ){ this->SetMaxIFrameSize( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("compression_quality"),	[this]( const nlohmann::json &commandIn ){ this->SetCompressionQuality( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("flip_vertical"), 			[this]( const nlohmann::json &commandIn ){ this->SetFlipVertical( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipHorizontal( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("contrast"), 				[this]( const nlohmann::json &commandIn ){ this->SetContrast( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("zoom"), 					[this]( const nlohmann::json &commandIn ){ this->SetZoom( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("pan"), 					[this]( const nlohmann::json &commandIn ){ this->SetPan( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("tilt"), 					[this]( const nlohmann::json &commandIn ){ this->SetTilt( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("pantilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetPantilt( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("brightness"), 			[this]( const nlohmann::json &commandIn ){ this->SetBrightness( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("hue"), 					[this]( const nlohmann::json &commandIn ){ this->SetHue( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("gamma"), 					[this]( const nlohmann::json &commandIn ){ this->SetGamma( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("saturation"), 			[this]( const nlohmann::json &commandIn ){ this->SetSaturation( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("gain"), 					[this]( const nlohmann::json &commandIn ){ this->SetGain( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("sharpness"), 				[this]( const nlohmann::json &commandIn ){ this->SetSharpness( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxAnalogGain( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("histogram_eq"), 			[this]( const nlohmann::json &commandIn ){ this->SetHistogramEQ( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this]( const nlohmann::json &commandIn ){ this->SetSharpenFilter( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("min_exp_framerate"), 		[this]( const nlohmann::json &commandIn ){ this->SetMinAutoExposureFramerate( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("tf_strength"), 			[this]( const nlohmann::json &commandIn ){ this->SetTemporalFilterStrength( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this]( const nlohmann::json &commandIn ){ this->SetGainMultiplier( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("exp"), 					[this]( const nlohmann::json &commandIn ){ this->SetExposureMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("nf"), 					[this]( const nlohmann::json &commandIn ){ this->SetNoiseFilterMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("wb"), 					[this]( const nlohmann::json &commandIn ){ this->SetWhiteBalanceMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("wdr"), 					[this]( const nlohmann::json &commandIn ){ this->SetWideDynamicRangeMode( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("zone_exp"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
-	m_apiMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("framerate"), 			[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this]( const nlohmann::json &commandIn ){ this->SetGOPHierarchy( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("avc_profile"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCProfile( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("avc_level"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCLevel( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("maxnal"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxNALSize( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("vui"), 					[this]( const nlohmann::json &commandIn ){ this->SetVUI( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("pict_timing"), 			[this]( const nlohmann::json &commandIn ){ this->SetPictTiming( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("max_framesize"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxIFrameSize( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("compression_quality"),	[this]( const nlohmann::json &commandIn ){ this->SetCompressionQuality( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("flip_vertical"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipVertical( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipHorizontal( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("contrast"), 			[this]( const nlohmann::json &commandIn ){ this->SetContrast( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("zoom"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoom( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("pan"), 					[this]( const nlohmann::json &commandIn ){ this->SetPan( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("tilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetTilt( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("pantilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetPantilt( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("brightness"), 			[this]( const nlohmann::json &commandIn ){ this->SetBrightness( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("hue"), 					[this]( const nlohmann::json &commandIn ){ this->SetHue( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("gamma"), 				[this]( const nlohmann::json &commandIn ){ this->SetGamma( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("saturation"), 			[this]( const nlohmann::json &commandIn ){ this->SetSaturation( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("gain"), 				[this]( const nlohmann::json &commandIn ){ this->SetGain( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("sharpness"), 			[this]( const nlohmann::json &commandIn ){ this->SetSharpness( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxAnalogGain( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("histogram_eq"), 		[this]( const nlohmann::json &commandIn ){ this->SetHistogramEQ( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this]( const nlohmann::json &commandIn ){ this->SetSharpenFilter( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("min_exp_framerate"), 	[this]( const nlohmann::json &commandIn ){ this->SetMinAutoExposureFramerate( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("tf_strength"), 			[this]( const nlohmann::json &commandIn ){ this->SetTemporalFilterStrength( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this]( const nlohmann::json &commandIn ){ this->SetGainMultiplier( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("exp"), 					[this]( const nlohmann::json &commandIn ){ this->SetExposureMode( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("nf"), 					[this]( const nlohmann::json &commandIn ){ this->SetNoiseFilterMode( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("wb"), 					[this]( const nlohmann::json &commandIn ){ this->SetWhiteBalanceMode( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("wdr"), 					[this]( const nlohmann::json &commandIn ){ this->SetWideDynamicRangeMode( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("zone_exp"), 			[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 		[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
 
 
-	// GET API
-	
-
-	m_getAPIMap.insert( std::make_pair( std::string("channel_info"), 			[this](){ this->GetChannelInfo(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("framerate"), 				[this](){ this->GetFramerate(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("bitrate"), 				[this](){ this->GetBitrate(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("goplen"), 					[this](){ this->GetGOPLength(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("gop_hierarchy_level"),		[this](){ this->GetGOPHierarchy(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("avc_profile"), 			[this](){ this->GetAVCProfile(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("avc_level"), 				[this](){ this->GetAVCLevel(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("maxnal"), 					[this](){ this->GetMaxNALSize(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("vui"), 					[this](){ this->GetVUI(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("pict_timing"), 			[this](){ this->GetPictTiming(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("max_framesize"), 			[this](){ this->GetMaxIFrameSize(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("compression_quality"),		[this](){ this->GetCompressionQuality(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("flip_vertical"), 			[this](){ this->GetFlipVertical(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this](){ this->GetFlipHorizontal(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("contrast"), 				[this](){ this->GetContrast(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("zoom"), 					[this](){ this->GetZoom(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("pan"), 					[this](){ this->GetPan(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("tilt"), 					[this](){ this->GetTilt(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("pantilt"), 				[this](){ this->GetPantilt(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("brightness"), 				[this](){ this->GetBrightness(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("hue"), 					[this](){ this->GetHue(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("gamma"), 					[this](){ this->GetGamma(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("saturation"), 				[this](){ this->GetSaturation(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("gain"), 					[this](){ this->GetGain(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("sharpness"), 				[this](){ this->GetSharpness(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this](){ this->GetMaxAnalogGain(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("histogram_eq"), 			[this](){ this->GetHistogramEQ(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("sharpen_filter"), 			[this](){ this->GetSharpenFilter(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("min_exp_framerate"), 		[this](){ this->GetMinAutoExposureFramerate(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("tf_strength"), 			[this](){ this->GetTemporalFilterStrength(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this](){ this->GetGainMultiplier(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("exp"), 					[this](){ this->GetExposureMode(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("nf"), 						[this](){ this->GetNoiseFilterMode(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("wb"), 						[this](){ this->GetWhiteBalanceMode(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("wdr"), 					[this](){ this->GetWideDynamicRangeMode(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("zone_exp"), 				[this](){ this->GetZoneExposure(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("zone_wb"), 				[this](){ this->GetZoneWhiteBalance(); } ) );
-	m_getAPIMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this](){ this->GetPowerLineFrequency(); } ) );
+	// Private API
+	m_privateApiMap.insert( std::make_pair( std::string("channel_info"), 		[this](){ this->GetChannelInfo(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("framerate"), 			[this](){ this->GetFramerate(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("bitrate"), 			[this](){ this->GetBitrate(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("goplen"), 				[this](){ this->GetGOPLength(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this](){ this->GetGOPHierarchy(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("avc_profile"), 		[this](){ this->GetAVCProfile(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("avc_level"), 			[this](){ this->GetAVCLevel(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("maxnal"), 				[this](){ this->GetMaxNALSize(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("vui"), 				[this](){ this->GetVUI(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("pict_timing"), 		[this](){ this->GetPictTiming(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("max_framesize"), 		[this](){ this->GetMaxIFrameSize(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("compression_quality"),	[this](){ this->GetCompressionQuality(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("flip_vertical"), 		[this](){ this->GetFlipVertical(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("flip_horizontal"), 	[this](){ this->GetFlipHorizontal(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("contrast"), 			[this](){ this->GetContrast(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("zoom"), 				[this](){ this->GetZoom(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("pan"), 				[this](){ this->GetPan(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("tilt"), 				[this](){ this->GetTilt(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("pantilt"), 			[this](){ this->GetPantilt(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("brightness"), 			[this](){ this->GetBrightness(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("hue"), 				[this](){ this->GetHue(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("gamma"), 				[this](){ this->GetGamma(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("saturation"), 			[this](){ this->GetSaturation(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("gain"), 				[this](){ this->GetGain(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("sharpness"), 			[this](){ this->GetSharpness(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("max_analog_gain"), 	[this](){ this->GetMaxAnalogGain(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("histogram_eq"), 		[this](){ this->GetHistogramEQ(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this](){ this->GetSharpenFilter(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("min_exp_framerate"), 	[this](){ this->GetMinAutoExposureFramerate(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("tf_strength"), 		[this](){ this->GetTemporalFilterStrength(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("gain_multiplier"), 	[this](){ this->GetGainMultiplier(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("exp"), 				[this](){ this->GetExposureMode(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("nf"), 					[this](){ this->GetNoiseFilterMode(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("wb"), 					[this](){ this->GetWhiteBalanceMode(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("wdr"), 				[this](){ this->GetWideDynamicRangeMode(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("zone_exp"), 			[this](){ this->GetZoneExposure(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("zone_wb"), 			[this](){ this->GetZoneWhiteBalance(); } ) );
+	m_privateApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 		[this](){ this->GetPowerLineFrequency(); } ) );
 }
 
 ///////////////////////////////////////
@@ -216,7 +215,7 @@ void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
 		try
 		{
 			// Call specified channel command with appropriate API function using passed in value
-			m_apiMap.at( it.key() )( it.value() );
+			m_publicApiMap.at( it.key() )( it.value() );
 		}
 		catch( const std::exception &e )
 		{
@@ -1038,7 +1037,7 @@ void CVideoChannel::PublishSettings( const nlohmann::json &commandIn )
 		{ "settings", m_settings }
 	};
 	
-	m_pStatusPublisher->EmitSettings( settings );
+	m_pStatusPublisher->EmitChannelSettings( settings );
 }
 
 void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
@@ -1058,9 +1057,20 @@ void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
 	m_pStatusPublisher->EmitChannelHealthStats( health );
 }
 
+void CVideoChannel::PublishAPI( const nlohmann::json &commandIn )
+{	
+	json api = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "api", m_api }
+	};
+	
+	m_pStatusPublisher->EmitChannelSettings( settings );
+}
+
 void CVideoChannel::GetAllSettings()
 {
-	for ( auto it = m_getAPIMap.begin(); it != m_getAPIMap.end(); ++it )
+	for ( auto it = m_privateApiMap.begin(); it != m_privateApiMap.end(); ++it )
 	{
 		try
 		{
