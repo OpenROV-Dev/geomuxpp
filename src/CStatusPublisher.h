@@ -14,10 +14,11 @@ public:
 	void EmitStatus( const std::string &statusIn );
 	void EmitError( const std::string &errorIn );
 	
-	void EmitSettings( const nlohmann::json &settingsIn );
 	void EmitChannelRegistration( uint32_t channelNumIn, const std::string &endpointPathIn, bool isOnlineIn );
+	void EmitChannelSettings( const nlohmann::json &settingsIn );
 	void EmitChannelHealthStats( const nlohmann::json &healthStatsIn );
-
+	void EmitChannelAPI( const nlohmann::json &apiIn );
+	
 private:
 	// Attributes
 	std::string					m_cameraOffset;

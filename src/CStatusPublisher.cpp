@@ -67,22 +67,21 @@ void CStatusPublisher::EmitChannelRegistration( uint32_t channelNumIn, const std
 						{ "endpoint", endpointPathIn },
 						{ "status", isOnlineIn }
 					};
-					
-	cout << "Channel reg: " << message.dump().c_str() << endl;
 	
 	m_statusPub.send( OutgoingMessage( "channel_registration" ), OutgoingMessage( message.dump().c_str() ) );
 }
 
-void CStatusPublisher::EmitSettings( const nlohmann::json &settingsIn )
+void CStatusPublisher::EmitChannelSettings( const nlohmann::json &settingsIn )
 {
-	cout << "Settings: " << settingsIn.dump().c_str() << endl;
-	
 	m_statusPub.send( OutgoingMessage( "channel_settings" ), OutgoingMessage( settingsIn.dump().c_str() ) );
 }
 
 void CStatusPublisher::EmitChannelHealthStats( const nlohmann::json &healthStatsIn )
 {
-	cout << "Health stats: " << healthStatsIn.dump().c_str() << endl;
-	
 	m_statusPub.send( OutgoingMessage( "channel_health" ), OutgoingMessage( healthStatsIn.dump().c_str() ) );
+}
+
+void CStatusPublisher::EmitChannelAPI( const nlohmann::json &apiIn )
+{
+	m_statusPub.send( OutgoingMessage( "channel_api" ), OutgoingMessage( apiIn.dump().c_str() ) );
 }
