@@ -1,0 +1,715 @@
+{
+	"publicAPI":
+	{
+		"publish_settings":
+		{
+			"formats": [ "all" ],
+			"params": {},
+			"description": "Publishes current settings of the channel."
+		},
+		
+		"publish_health":
+		{
+			"formats": [ "all" ],
+			"params": {},
+			"description": "Publishes current health stats of the channel."
+		},
+		
+		"publish_api":
+		{
+			"formats": [ "all" ],
+			"params": {},
+			"description": "Publishes the API of the channel."
+		},
+		
+		"video_start":
+		{
+			"formats": [ "all" ],
+			"params": {},
+			"description": "Starts the video stream."
+		},
+		
+		"video_stop":
+		{
+			"formats": [ "all" ],
+			"params": {},
+			"description": "Stops the video stream."
+		},
+		
+		"force_iframe":
+		{
+			"formats": [ "h264" ],
+			"params": {},
+			"description": "Forces the channel to output an I-frame."
+		},
+		
+		"apply_settings":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"settings":
+				{
+					"type": "object",
+					"description": "Collection of objects describing specific settings. See individual settings API for more info."
+				}
+			},
+			"description": "Allows the user to set multiple settings at once."
+		}
+	},
+	
+	"settingsAPI":
+	{
+		"framerate":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "fps",
+					"min": 1,
+					"max": 60,
+					"description": "Sets max framerate of the channel. Does not guarantee the true framerate."
+				}
+			}
+		},
+		
+		"bitrate":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "bps",
+					"min": 1000,
+					"max": 10000000,
+					"description": "Sets max bitrate of the channel. Does not guarantee the true bitrate."
+				}
+			}
+		},
+		
+		"goplen":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "frames",
+					"min": 1,
+					"max": 300,
+					"description": "Number of P-frames between each I-frame."
+				}
+			}
+		},
+		
+		"gop_hierarchy_level":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "level",
+					"min": 0,
+					"max": 4,
+					"description": "GOP Hierarchy Level."
+				}
+			}
+		},
+		
+		"avc_profile":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "baseline", "main", "high" ],
+					"description": "AVC Encoding Profile."
+				}
+			}
+		},
+		
+		"avc_level":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "level",
+					"min": 10,
+					"max": 52,
+					"description": "AVC Encoding Level."
+				}
+			}
+		},
+		
+		"maxnal":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "When enabled, caps the max size of a given NAL unit to the specified value. If a frame is larger than this value, it will be broken up into multiple NAL units. If false, value will be implicitly set to 0."
+				},
+				
+				"value":
+				{
+					"type": "uint32",
+					"unit": "bytes",
+					"min": 1,
+					"max": 500000,
+					"description": "Max NAL size in bytes."
+				}
+			}
+		},
+		
+		"vui":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "When enabled, includes VUI information in the h264 SPS."
+				}
+			}
+		},
+		
+		"pict_timing":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "When enabled, includes picture timing information in the h264 SPS."
+				}
+			}
+		},
+		
+		"max_framesize":
+		{
+			"formats": [ "h264" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "bytes",
+					"min": 1,
+					"max": 500000,
+					"description": "Max frame size in bytes."
+				}
+			}
+		},
+		
+		"compression_quality":
+		{
+			"formats": [ "mjpeg" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "bytes",
+					"min": 0,
+					"max": 10000,
+					"description": "Sets MJPEG compression quality in terms of image quantization parameter (QP)."
+				}
+			}
+		},
+		
+		"flip_vertical":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Flips image vertically."
+				}
+			}
+		},
+		
+		"flip_horizontal":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Flips image horizontally."
+				}
+			}
+		},
+		
+		"contrast":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 200,
+					"description": "Image contrast."
+				}
+			}
+		},
+		
+		"zoom":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 100,
+					"description": "Image zoom."
+				}
+			}
+		},
+		
+		"pan":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "int32",
+					"unit": "none",
+					"min": -648000,
+					"max": 648000,
+					"description": "Image pan."
+				}
+			}
+		},
+		
+		"tilt":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "int32",
+					"unit": "none",
+					"min": -648000,
+					"max": 648000,
+					"description": "Image tilt."
+				}
+			}
+		},
+		
+		"pantilt":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"pan":
+				{
+					"type": "int32",
+					"unit": "none",
+					"min": -648000,
+					"max": 648000,
+					"description": "Image pan."
+				},
+				
+				"tilt":
+				{
+					"type": "int32",
+					"unit": "none",
+					"min": -648000,
+					"max": 648000,
+					"description": "Image tilt."
+				}
+			}
+		},
+		
+		"brightness":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "int16",
+					"unit": "none",
+					"min": -255,
+					"max": 255,
+					"description": "Image brightness."
+				}
+			}
+		},
+		
+		"hue":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "int16",
+					"unit": "none",
+					"min": -18000,
+					"max": 18000,
+					"description": "Image hue."
+				}
+			}
+		},
+		
+		"gamma":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 100,
+					"max": 300,
+					"description": "Image gamma."
+				}
+			}
+		},
+		
+		"saturation":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 200,
+					"description": "Image saturation."
+				}
+			}
+		},
+		
+		"gain":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 1,
+					"max": 100,
+					"description": "Image gain."
+				}
+			}
+		},
+		
+		"sharpness":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 1,
+					"max": 100,
+					"description": "Image sharpness."
+				}
+			}
+		},
+		
+		"max_analog_gain":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "none",
+					"min": 0,
+					"max": 15,
+					"description": "Maximum sensor analog gain in auto exposure algorithm."
+				}
+			}
+		},
+		
+		"histogram_eq":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable histogram equalization, which gives more contrast to the image."
+				}
+			}
+		},
+		
+		"sharpen_filter":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "none",
+					"min": 0,
+					"max": 2,
+					"description": "Strength of the sharpening filter, higher being stronger."
+				}
+			}
+		},
+		
+		"min_exp_framerate":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "none",
+					"min": 0,
+					"max": 30,
+					"description": "Minimum framerate that the autoexposure algorithm can drop to."
+				}
+			}
+		},
+		
+		"tf_strength":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable the temporal filter."
+				},
+				
+				"value":
+				{
+					"type": "uint32",
+					"unit": "none",
+					"min": 1,
+					"max": 7,
+					"description": "Strength of the temporal filter."
+				}
+			}
+		},
+		
+		"gain_multiplier":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"value":
+				{
+					"type": "uint32",
+					"unit": "none",
+					"min": 0,
+					"max": 256,
+					"description": "Controls the autoexposure algorithm to adjust the sensor analog gain and exposure based on different lighting conditions."
+				}
+			}
+		},
+		
+		"exp":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"mode":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "auto", "manual" ],
+					"description": "Autoexposure mode."
+				},
+				
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 255,
+					"description": "Exposure time."
+				}
+			}
+		},
+		
+		"nf":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"mode":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "auto", "manual" ],
+					"description": "Noise filter mode."
+				},
+				
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 100,
+					"description": "Noise filter strength."
+				}
+			}
+		},
+		
+		"wb":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"mode":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "auto", "manual" ],
+					"description": "White balance mode."
+				},
+				
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 2800,
+					"max": 6500,
+					"description": "White balance temperature."
+				}
+			}
+		},
+		
+		"wdr":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable Wide Dynamic Range mode."
+				},
+				
+				"mode":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "auto", "manual" ],
+					"description": "WDR mode."
+				},
+				
+				"value":
+				{
+					"type": "uint8",
+					"unit": "none",
+					"min": 0,
+					"max": 255,
+					"description": "WDR intensity."
+				}
+			}
+		},
+		
+		"zone_exp":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable zonal exposure."
+				},
+				
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 62,
+					"description": "Zone value."
+				}
+			}
+		},
+		
+		"zone_wb":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable zonal white balance."
+				},
+				
+				"value":
+				{
+					"type": "uint16",
+					"unit": "none",
+					"min": 0,
+					"max": 63,
+					"description": "Zone value."
+				}
+			}
+		},
+		
+		"pwr_line_freq":
+		{
+			"formats": [ "all" ],
+			"params": 
+			{
+				"enabled":
+				{
+					"type": "bool",
+					"description": "Enable/disable power line frequency compensation."
+				},
+				
+				"mode":
+				{
+					"type": "string",
+					"unit": "",
+					"options": [ "50HZ", "60HZ" ],
+					"description": "Power line frequency of the operating region. Sensor exposure value under the auto-exposure algorithm will be adjusted to avoid flickering caused by power level oscillation."
+				}
+			}
+		}
+	}
+}
