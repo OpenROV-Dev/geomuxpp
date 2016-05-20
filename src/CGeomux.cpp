@@ -1,105 +1,99 @@
 // Includes
-#include <signal.h>
+#include <csignal>
 #include <unistd.h>
+#include <json.hpp>
 
 #include "CGeomux.h"
-#include "easylogging.hpp"
 
-#include <msgpack.hpp>
+using namespace std;
+using namespace CpperoMQ;
+
+using json = nlohmann::json;
 
 CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
-	, m_quitApplication( false )
-	, m_geocam( &m_muxer.m_inputBuffer )
-{
+	, m_cameraOffset( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ) )
+	, m_commandSubscriber( m_cameraOffset, &m_context )
+	, m_statusPublisher( m_cameraOffset, &m_context )
+	, m_gc6500( m_cameraOffset, &m_context, &m_statusPublisher )
+{	
+	
 }
 
-CGeomux::~CGeomux()
-{
-}
+CGeomux::~CGeomux(){ cout << "Cleaning up CGeomux" << endl; }
 
 void CGeomux::Run()
 {
 	try
 	{	
-		LOG( INFO ) << "Application Started.";
-
-		// Bind the zmq publisher to the geomux ipc file
-		//
-
-		// Set up the muxer
-		m_muxer.Initialize();
+		cout << "Application Started." << endl;
 		
-		// Initialize the main channel of camera 0
-		m_geocam.InitDevice();
-		
-		// m_geocam.EnableVUI();
-		// m_geocam.SetPictureTiming( 1 );
-		// m_geocam.GetPictureTiming();
-		
-		// Start capturing data from the camera
-		if( !m_geocam.StartVideo() )
+		while( !m_quit )
 		{
-			LOG( ERROR ) << "Start video failed";
-			throw std::runtime_error( "Dead" );
-		}
-		
-		m_geocam.ForceIFrame();
-		
-		usleep( 50000 );
+			Update();
+		}	
 
-		// Our application logic goes here.
-		while( m_quitApplication == false )
-		{
-			Update();		
-		}
-		
-		// Stop capturing data
-		m_geocam.StopVideo();
+		cout << "Application Ended." << endl;
 
-		LOG( INFO ) << "Application Ended.";
 	}
 	catch( const std::exception &e )
 	{
-		LOG( ERROR ) << "Exception in Run(): " << e.what();
-	}
-	
-}
-
-void CGeomux::HandleSignal( int signalIdIn )
-{
-	// Print a new line to offset ctrl text
-	std::cout << std::endl;
-
-	if( signalIdIn == SIGINT )
-	{
-		LOG( INFO ) << "SIGINT Detected: Cleaning up gracefully...";
-		
-		m_quitApplication = true;
-		m_muxer.m_inputBuffer.m_dataAvailableCondition.notify_one();
-	}
-	else
-	{
-		LOG( INFO ) << "Unknown signal detected: Ignoring...";
+		cerr << "Exception in Run(): " << e.what() << endl;
 	}
 }
 
 void CGeomux::Update()
+{	
+	HandleMessages();
+}
+
+void CGeomux::HandleMessages()
 {
+	try
 	{
-		std::unique_lock<std::mutex> lock( m_muxer.m_inputBuffer.m_mutex );
-		while( m_muxer.m_inputBuffer.GetSize() == 0 )
+		// Get message
+		IncomingMessage msg;
+		
+		while( m_commandSubscriber.m_geomuxCmdSub.receive( msg ) )
 		{
-			if( m_quitApplication )
-			{
-				return;
-			}
+			// Parse into json object
+			json message = json::parse( string( msg.charData(), msg.size() ) );
 			
-			// Wait to be signaled that there is data
-			m_muxer.m_inputBuffer.m_dataAvailableCondition.wait( lock );
+			// Pass json message to processor
+			if( message.at( "cmd" ) == "shutdown" ) 
+			{
+				Shutdown();
+				break;
+			}
+			else if( message.at( "cmd" ) == "restart" )
+			{
+				Restart();
+				break;
+			}
+			else
+			{
+				m_gc6500.HandleMessage( message );
+			}
 		}
+		
 	}
-	
-	// Run the muxer's update function
-	m_muxer.Update();
+	catch( const std::exception &e )
+	{
+		m_statusPublisher.EmitError( e.what() );
+		cerr << "Error handling message: " << e.what() << endl;
+		return;
+	}
+}
+
+void CGeomux::Shutdown()
+{
+	m_statusPublisher.EmitStatus( "shuttingDown" );
+	m_quit = true;
+}
+
+void CGeomux::Restart()
+{
+	m_statusPublisher.EmitStatus( "restarting" );
+	m_quit = true;
+	m_restart = true;
 }

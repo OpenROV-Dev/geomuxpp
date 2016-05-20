@@ -1,11 +1,12 @@
 #pragma once
  
 // Includes
-#include <cstdint>
-#include <chrono>
-#include <zmq.hpp>
-
+#include <CpperoMQ/All.hpp>
 #include "CVideoBuffer.h"
+
+#include <thread>
+#include <mutex> 
+#include <atomic>
  
 extern "C" 
 { 
@@ -14,6 +15,7 @@ extern "C"
 	#include <libavutil/channel_layout.h>
 	#include <libavutil/opt.h>
 	#include <libavutil/log.h>
+	#include <libavutil/time.h>
 	#include <libavutil/mathematics.h>
 	#include <libavutil/timestamp.h>
 	#include "libavutil/pixfmt.h"
@@ -22,23 +24,55 @@ extern "C"
 	#include <libswresample/swresample.h>
 	#include <libavformat/avio.h>
 	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
 }
+
+enum class EVideoFormat
+{
+	H264,
+	MJPEG,
+	UNKNOWN
+};
 
 class CMuxer
 {
 public:
-	CMuxer();
-	virtual ~CMuxer();
-
-	size_t				m_avioContextBufferSize		= 4000000; // ~4mb
-
 	CVideoBuffer 		m_inputBuffer;
+	
+	std::atomic<bool> 	m_killThread;
+	
+	std::thread 		m_thread;
+
+	// Methods
+	CMuxer( CpperoMQ::Context *contextIn, const std::string &endpointIn, EVideoFormat formatIn );
+	virtual ~CMuxer();
+	
+	// Methods
+	void Initialize();
+	void Update();
+	void ThreadLoop();
+		
+	EVideoFormat 				m_format;
+
+	CpperoMQ::Context 			*m_pContext;
+	CpperoMQ::PublishSocket 	m_dataPub;
+	
+	size_t				m_avioContextBufferSize		= 4000000; // ~4mb
+	
+	int64_t				m_timestamp					= 0;
+	int64_t				m_streamTimebase			= 0;
+	
+	TFrameStats			m_frameStats;
+	uint64_t			m_framesDelivered			= 0;
+	uint64_t			m_framesFailed				= 0;
+	
+	std::atomic<uint64_t> 	m_droppedFrames;
+	std::atomic<uint32_t> 	m_latency_us;
+	std::atomic<float>		m_fps;
+	
 	bool				m_holdBuffer 				= false;
 	bool				m_isComposingInitFrame 		= false;
 	
-	zmq::context_t 		m_zmqContext;
-	zmq::socket_t 		m_zmqPublisher;
-
 	// Input structures
 	AVFormatContext 	*m_pInputFormatContext 		= NULL;
 	AVIOContext 		*m_pInputAvioContext 		= NULL;
@@ -58,19 +92,9 @@ public:
 	bool 				m_formatAcquired 			= false;
 	
 	AVDictionary 		*m_pMuxerOptions			= NULL;
-	
-	// Methods
-	void Initialize();
-	void Update();
-	void Cleanup();
-	
+
 	// Custom read function for ffmpeg
 	static int ReadPacket( void *muxerIn, uint8_t *avioBufferOut, int avioBufferSizeAvailableIn );
 	static int WritePacket( void *sharedDataIn, uint8_t *avioBufferIn, int bytesAvailableIn );
+	
 };
-	
-	
-	
-		
-	
-				

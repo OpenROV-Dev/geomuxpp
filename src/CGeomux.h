@@ -1,30 +1,35 @@
 #pragma once
 
 // Includes
-#include <zmq.hpp>
+#include <CpperoMQ/All.hpp>
 
 #include "CApp.h"
-#include "CGeoCam.h"
-#include "CMuxer.h"
-
+#include "CCommandSubscriber.h"
+#include "CStatusPublisher.h"
+#include "CGC6500.h"
 
 class CGeomux : public CApp
 {
 public:
-	// Attributes
-	bool 			m_quitApplication;
-	
-	CGeoCam 		m_geocam;
-	CMuxer			m_muxer;
-	
-	
-
 	// Methods
 	CGeomux( int argCountIn, char* argsIn[] );
 	virtual ~CGeomux();
 
 	virtual void Run();
-	virtual void HandleSignal( int signalIdIn );
+
+private:
+	// Attributes
+	CpperoMQ::Context 			m_context;
 	
+	std::string					m_cameraOffset;
+	CCommandSubscriber			m_commandSubscriber;
+	CStatusPublisher			m_statusPublisher;
+	CGC6500 					m_gc6500;
+	
+	// Methods
 	void Update();
+	void HandleMessages();
+	
+	void Shutdown();
+	void Restart();
 };
