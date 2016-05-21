@@ -17,7 +17,7 @@ class CStatusPublisher;
 #define VIDEO_BACKEND "\"v4l2\""
 
 // Typedefs
-typedef std::unordered_map<std::string, std::function<void( const nlohmann::json &commandIn )>> TApiFunctionMap;
+typedef std::unordered_map<std::string, std::function<void( const nlohmann::json &paramsIn )>> TApiFunctionMap;
 typedef std::unordered_map<std::string, std::function<void()>> TGetAPIMap;
 
 
@@ -44,6 +44,7 @@ private:
 	nlohmann::json 					m_api;
 	
 	TApiFunctionMap 				m_publicApiMap;
+	TApiFunctionMap 				m_settingsApiMap;
 	TGetAPIMap 						m_privateApiMap;
 	
 	CMuxer							m_muxer;
@@ -53,6 +54,15 @@ private:
 	void LoadAPI();
 	void RegisterAPIFunctions();
 	
+	bool IsCommandSupported( const std::string &commandNameIn );
+	bool IsSettingSupported( const std::string &settingNameIn );
+	
+	void ValidateCommand( const nlohmann::json &commandIn );
+	void ValidateSetting( const std::string &settingNameIn, const nlohmann::json &settingIn );
+	
+	void ValidateParameterType( const nlohmann::json &paramApiIn, const nlohmann::json &paramIn );
+	void ValidateParameterValue( const nlohmann::json &paramApiIn, const nlohmann::json &paramIn );
+	
 	///////////////////////////////////////
 	// Public channel API
 	///////////////////////////////////////
@@ -61,67 +71,67 @@ private:
 	// Action API
 	
 	// Publish commands
-	void PublishSettings( const nlohmann::json &commandIn );
-	void PublishHealthStats( const nlohmann::json &commandIn );
-	void PublishAPI( const nlohmann::json &commandIn );
+	void PublishSettings( const nlohmann::json &paramsIn );
+	void PublishHealthStats( const nlohmann::json &paramsIn );
+	void PublishAPI( const nlohmann::json &paramsIn );
 	
 	// General
-	void StartVideo( const nlohmann::json &commandIn );
-	void StopVideo( const nlohmann::json &commandIn );
+	void StartVideo( const nlohmann::json &paramsIn );
+	void StopVideo( const nlohmann::json &paramsIn );
 	
 	// H264
-	void ForceIFrame( const nlohmann::json &commandIn );
+	void ForceIFrame( const nlohmann::json &paramsIn );
 	
 	//--------------------
 	// Settings API
 	
 	// This command accepts a json object with multiple settings and sets them all at once
-	void SetMultipleSettings( const nlohmann::json &commandIn );		
+	void ApplySettings( const nlohmann::json &paramsIn );		
 	
 	// General
-	void SetFramerate( const nlohmann::json &commandIn );
-	void SetBitrate( const nlohmann::json &commandIn );
+	void SetFramerate( const nlohmann::json &paramsIn );
+	void SetBitrate( const nlohmann::json &paramsIn );
 	
 	// H264
-	void SetGOPLength( const nlohmann::json &commandIn );
-	void SetGOPHierarchy( const nlohmann::json &commandIn );
-	void SetAVCProfile( const nlohmann::json &commandIn );
-	void SetAVCLevel( const nlohmann::json &commandIn );
-	void SetMaxNALSize( const nlohmann::json &commandIn );
-	void SetVUI( const nlohmann::json &commandIn );
-	void SetPictTiming( const nlohmann::json &commandIn );
-	void SetMaxIFrameSize( const nlohmann::json &commandIn );
+	void SetGOPLength( const nlohmann::json &paramsIn );
+	void SetGOPHierarchy( const nlohmann::json &paramsIn );
+	void SetAVCProfile( const nlohmann::json &paramsIn );
+	void SetAVCLevel( const nlohmann::json &paramsIn );
+	void SetMaxNALSize( const nlohmann::json &paramsIn );
+	void SetVUI( const nlohmann::json &paramsIn );
+	void SetPictTiming( const nlohmann::json &paramsIn );
+	void SetMaxIFrameSize( const nlohmann::json &paramsIn );
 	
 	// MJPEG
-	void SetCompressionQuality( const nlohmann::json &commandIn );
+	void SetCompressionQuality( const nlohmann::json &paramsIn );
 	
 	// Sensor
-	void SetFlipVertical( const nlohmann::json &commandIn );
-	void SetFlipHorizontal( const nlohmann::json &commandIn );
-	void SetContrast( const nlohmann::json &commandIn );
-	void SetZoom( const nlohmann::json &commandIn );
-	void SetPan( const nlohmann::json &commandIn );
-	void SetTilt( const nlohmann::json &commandIn );
-	void SetPantilt( const nlohmann::json &commandIn );
-	void SetBrightness( const nlohmann::json &commandIn );
-	void SetHue( const nlohmann::json &commandIn );
-	void SetGamma( const nlohmann::json &commandIn );
-	void SetSaturation( const nlohmann::json &commandIn );
-	void SetGain( const nlohmann::json &commandIn );
-	void SetSharpness( const nlohmann::json &commandIn );
-	void SetMaxAnalogGain( const nlohmann::json &commandIn );
-	void SetHistogramEQ( const nlohmann::json &commandIn );
-	void SetSharpenFilter( const nlohmann::json &commandIn );
-	void SetMinAutoExposureFramerate( const nlohmann::json &commandIn );
-	void SetTemporalFilterStrength( const nlohmann::json &commandIn );
-	void SetGainMultiplier( const nlohmann::json &commandIn );
-	void SetExposureMode( const nlohmann::json &commandIn );
-	void SetNoiseFilterMode( const nlohmann::json &commandIn );
-	void SetWhiteBalanceMode( const nlohmann::json &commandIn );
-	void SetWideDynamicRangeMode( const nlohmann::json &commandIn );
-	void SetZoneExposure( const nlohmann::json &commandIn );
-	void SetZoneWhiteBalance( const nlohmann::json &commandIn );
-	void SetPowerLineFrequency( const nlohmann::json &commandIn );
+	void SetFlipVertical( const nlohmann::json &paramsIn );
+	void SetFlipHorizontal( const nlohmann::json &paramsIn );
+	void SetContrast( const nlohmann::json &paramsIn );
+	void SetZoom( const nlohmann::json &paramsIn );
+	void SetPan( const nlohmann::json &paramsIn );
+	void SetTilt( const nlohmann::json &paramsIn );
+	void SetPantilt( const nlohmann::json &paramsIn );
+	void SetBrightness( const nlohmann::json &paramsIn );
+	void SetHue( const nlohmann::json &paramsIn );
+	void SetGamma( const nlohmann::json &paramsIn );
+	void SetSaturation( const nlohmann::json &paramsIn );
+	void SetGain( const nlohmann::json &paramsIn );
+	void SetSharpness( const nlohmann::json &paramsIn );
+	void SetMaxAnalogGain( const nlohmann::json &paramsIn );
+	void SetHistogramEQ( const nlohmann::json &paramsIn );
+	void SetSharpenFilter( const nlohmann::json &paramsIn );
+	void SetMinAutoExposureFramerate( const nlohmann::json &paramsIn );
+	void SetTemporalFilterStrength( const nlohmann::json &paramsIn );
+	void SetGainMultiplier( const nlohmann::json &paramsIn );
+	void SetExposureMode( const nlohmann::json &paramsIn );
+	void SetNoiseFilterMode( const nlohmann::json &paramsIn );
+	void SetWhiteBalanceMode( const nlohmann::json &paramsIn );
+	void SetWideDynamicRangeMode( const nlohmann::json &paramsIn );
+	void SetZoneExposure( const nlohmann::json &paramsIn );
+	void SetZoneWhiteBalance( const nlohmann::json &paramsIn );
+	void SetPowerLineFrequency( const nlohmann::json &paramsIn );
 	
 	
 	///////////////////////////////////////

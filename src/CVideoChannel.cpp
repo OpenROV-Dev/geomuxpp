@@ -2,9 +2,12 @@
 #include <utility>
 #include <unistd.h>
 #include <chrono>
-#include "CVideoChannel.h"
+#include <fstream>
+#include <algorithm>
 
+#include "CVideoChannel.h"
 #include "CStatusPublisher.h"
+#include "GC6500_API.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -23,6 +26,9 @@ CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t
 	// Fetch all setting info from the camera. Some is critical (format), most is not.
 	GetAllSettings();
 	
+	// Load API
+	LoadAPI();
+	
 	// TODO:
 	// Dynamically create the type of muxer based on the detected video format (h264 vs mjpeg)
 	
@@ -34,6 +40,9 @@ CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t
 	
 	// Announce channel has come online and is ready to use
 	m_pStatusPublisher->EmitChannelRegistration( (uint32_t)m_channel, m_endpoint, true );
+	
+	// Publish API for channel
+	PublishAPI( json("") );
 	
 	// Publish settings for channel
 	PublishSettings( json("") );
@@ -52,12 +61,26 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 {
 	try
 	{
-		// Call specified channel command with appropriate API function using passed in value
-		m_publicApiMap.at( commandIn.at( "chCmd" ).get<std::string>() )( commandIn.at( "value" ) );
+		// commandIn Format:
+		// {
+		// 		"cmd": 		"chCmd"
+		// 		"ch": 		<channelNum>
+		// 		"chCmd": 	<commandName>
+		// 		"params": 	<commandParams>
+		// }
+		
+		// Validate Command
+		ValidateCommand( commandIn );
+		
+		const std::string command( commandIn.at( "chCmd" ).get<std::string>() );
+		const json params( commandIn.at( "params" ) );
+		
+		// Call specified channel command with specified parameters
+		m_publicApiMap.at( command )( params );
 	}
 	catch( const std::exception &e )
 	{
-		cerr << "VideoChannel Error: " << e.what() << endl;
+		cerr << "VideoChannel Error: " << std::string( e.what() ) << endl;
 	}
 }
 
@@ -68,9 +91,8 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 // This gets called by the MXUVC library every time we have a NAL available
 void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bufferSizeIn, video_info_t infoIn, void *userDataIn )
 {
-	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-
-	//cout << "Input: " << bufferSizeIn << " bytes at: " << now << endl;
+	// auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+	// cout << "Input: " << bufferSizeIn << " bytes at: " << now << endl;
 	
 	CVideoChannel* channel = (CVideoChannel*) userDataIn;
 	
@@ -81,58 +103,101 @@ void CVideoChannel::VideoCallback( unsigned char *dataBufferOut, unsigned int bu
 	mxuvc_video_cb_buf_done( channel->m_channel, infoIn.buf_index );
 }
 
+void CVideoChannel::LoadAPI()
+{
+	try
+	{
+		// Check the API version
+		if( GC6500_VERSION != gc6500::api.at( "version" ).get<std::string>() )
+		{
+			throw std::runtime_error( "GC6500 version used in this build does not match API schema!" );
+		}
+		
+		m_api[ "version" ] = gc6500::api.at( "version" ).get<std::string>();
+		
+		const std::string format( m_settings.at( "format" ).get<std::string>() );
+		
+		// Iterate public API section and grab relevant API descriptors
+		json publicAPI( gc6500::api.at( "publicAPI" ) );
+		for( json::iterator it = publicAPI.begin(); it != publicAPI.end(); ++it ) 
+		{
+			// Check to see if it is supported for this channel's format
+			if( IsCommandSupported( format ) == true )
+			{
+				// Copy the API to the channel's API
+				m_api[ "publicAPI" ][ it.key() ] = it.value();
+			}
+		}
+		
+		// Iterate settings API section and grab relevant API descriptors
+		json settings( gc6500::api.at( "settingsAPI" ) );
+		for( json::iterator it = settings.begin(); it != settings.end(); ++it ) 
+		{
+			// Check to see if it is supported for this channel's format
+			if( IsSettingSupported( format ) == true )
+			{
+				// Copy the API to the channel's API
+				m_api[ "settingAPI" ][ it.key() ] = it.value();
+			}
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Failed to load API. Error: " + std::string( e.what() ) );
+	}
+}
 
 void CVideoChannel::RegisterAPIFunctions()
 {
 	// Register callbacks in our handler map
 	
 	// Public API
-	m_publicApiMap.insert( std::make_pair( std::string("video_start"), 			[this]( const nlohmann::json &commandIn ){ this->StartVideo( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("video_stop"), 			[this]( const nlohmann::json &commandIn ){ this->StopVideo( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("force_iframe"), 		[this]( const nlohmann::json &commandIn ){ this->ForceIFrame( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 	[this]( const nlohmann::json &commandIn ){ this->PublishSettings( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 		[this]( const nlohmann::json &commandIn ){ this->PublishHealthStats( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 			[this]( const nlohmann::json &commandIn ){ this->PublishAPI( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("any_setting"), 			[this]( const nlohmann::json &commandIn ){ this->SetMultipleSettings( commandIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("video_start"), 				[this]( const nlohmann::json &paramsIn ){ this->StartVideo( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("video_stop"), 				[this]( const nlohmann::json &paramsIn ){ this->StopVideo( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &paramsIn ){ this->ForceIFrame( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &paramsIn ){ this->PublishSettings( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 			[this]( const nlohmann::json &paramsIn ){ this->PublishHealthStats( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 				[this]( const nlohmann::json &paramsIn ){ this->PublishAPI( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("apply_settings"),			[this]( const nlohmann::json &paramsIn ){ this->ApplySettings( paramsIn ); } ) );
 	
-	m_publicApiMap.insert( std::make_pair( std::string("framerate"), 			[this]( const nlohmann::json &commandIn ){ this->SetFramerate( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &commandIn ){ this->SetBitrate( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &commandIn ){ this->SetGOPLength( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this]( const nlohmann::json &commandIn ){ this->SetGOPHierarchy( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("avc_profile"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCProfile( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("avc_level"), 			[this]( const nlohmann::json &commandIn ){ this->SetAVCLevel( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("maxnal"), 				[this]( const nlohmann::json &commandIn ){ this->SetMaxNALSize( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("vui"), 					[this]( const nlohmann::json &commandIn ){ this->SetVUI( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("pict_timing"), 			[this]( const nlohmann::json &commandIn ){ this->SetPictTiming( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("max_framesize"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxIFrameSize( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("compression_quality"),	[this]( const nlohmann::json &commandIn ){ this->SetCompressionQuality( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("flip_vertical"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipVertical( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this]( const nlohmann::json &commandIn ){ this->SetFlipHorizontal( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("contrast"), 			[this]( const nlohmann::json &commandIn ){ this->SetContrast( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("zoom"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoom( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("pan"), 					[this]( const nlohmann::json &commandIn ){ this->SetPan( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("tilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetTilt( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("pantilt"), 				[this]( const nlohmann::json &commandIn ){ this->SetPantilt( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("brightness"), 			[this]( const nlohmann::json &commandIn ){ this->SetBrightness( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("hue"), 					[this]( const nlohmann::json &commandIn ){ this->SetHue( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("gamma"), 				[this]( const nlohmann::json &commandIn ){ this->SetGamma( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("saturation"), 			[this]( const nlohmann::json &commandIn ){ this->SetSaturation( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("gain"), 				[this]( const nlohmann::json &commandIn ){ this->SetGain( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("sharpness"), 			[this]( const nlohmann::json &commandIn ){ this->SetSharpness( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this]( const nlohmann::json &commandIn ){ this->SetMaxAnalogGain( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("histogram_eq"), 		[this]( const nlohmann::json &commandIn ){ this->SetHistogramEQ( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this]( const nlohmann::json &commandIn ){ this->SetSharpenFilter( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("min_exp_framerate"), 	[this]( const nlohmann::json &commandIn ){ this->SetMinAutoExposureFramerate( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("tf_strength"), 			[this]( const nlohmann::json &commandIn ){ this->SetTemporalFilterStrength( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this]( const nlohmann::json &commandIn ){ this->SetGainMultiplier( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("exp"), 					[this]( const nlohmann::json &commandIn ){ this->SetExposureMode( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("nf"), 					[this]( const nlohmann::json &commandIn ){ this->SetNoiseFilterMode( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("wb"), 					[this]( const nlohmann::json &commandIn ){ this->SetWhiteBalanceMode( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("wdr"), 					[this]( const nlohmann::json &commandIn ){ this->SetWideDynamicRangeMode( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("zone_exp"), 			[this]( const nlohmann::json &commandIn ){ this->SetZoneExposure( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &commandIn ){ this->SetZoneWhiteBalance( commandIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 		[this]( const nlohmann::json &commandIn ){ this->SetPowerLineFrequency( commandIn ); } ) );
-
+	// Settings API
+	m_settingsApiMap.insert( std::make_pair( std::string("framerate"), 				[this]( const nlohmann::json &paramsIn ){ this->SetFramerate( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("bitrate"), 				[this]( const nlohmann::json &paramsIn ){ this->SetBitrate( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("goplen"), 				[this]( const nlohmann::json &paramsIn ){ this->SetGOPLength( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("gop_hierarchy_level"),	[this]( const nlohmann::json &paramsIn ){ this->SetGOPHierarchy( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("avc_profile"), 			[this]( const nlohmann::json &paramsIn ){ this->SetAVCProfile( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("avc_level"), 				[this]( const nlohmann::json &paramsIn ){ this->SetAVCLevel( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("maxnal"), 				[this]( const nlohmann::json &paramsIn ){ this->SetMaxNALSize( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("vui"), 					[this]( const nlohmann::json &paramsIn ){ this->SetVUI( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("pict_timing"), 			[this]( const nlohmann::json &paramsIn ){ this->SetPictTiming( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("max_framesize"), 			[this]( const nlohmann::json &paramsIn ){ this->SetMaxIFrameSize( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("compression_quality"),	[this]( const nlohmann::json &paramsIn ){ this->SetCompressionQuality( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("flip_vertical"), 			[this]( const nlohmann::json &paramsIn ){ this->SetFlipVertical( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("flip_horizontal"), 		[this]( const nlohmann::json &paramsIn ){ this->SetFlipHorizontal( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("contrast"), 				[this]( const nlohmann::json &paramsIn ){ this->SetContrast( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("zoom"), 					[this]( const nlohmann::json &paramsIn ){ this->SetZoom( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("pan"), 					[this]( const nlohmann::json &paramsIn ){ this->SetPan( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("tilt"), 					[this]( const nlohmann::json &paramsIn ){ this->SetTilt( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("pantilt"), 				[this]( const nlohmann::json &paramsIn ){ this->SetPantilt( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("brightness"), 			[this]( const nlohmann::json &paramsIn ){ this->SetBrightness( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("hue"), 					[this]( const nlohmann::json &paramsIn ){ this->SetHue( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("gamma"), 					[this]( const nlohmann::json &paramsIn ){ this->SetGamma( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("saturation"), 			[this]( const nlohmann::json &paramsIn ){ this->SetSaturation( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("gain"), 					[this]( const nlohmann::json &paramsIn ){ this->SetGain( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("sharpness"), 				[this]( const nlohmann::json &paramsIn ){ this->SetSharpness( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("max_analog_gain"), 		[this]( const nlohmann::json &paramsIn ){ this->SetMaxAnalogGain( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("histogram_eq"), 			[this]( const nlohmann::json &paramsIn ){ this->SetHistogramEQ( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("sharpen_filter"), 		[this]( const nlohmann::json &paramsIn ){ this->SetSharpenFilter( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("min_exp_framerate"), 		[this]( const nlohmann::json &paramsIn ){ this->SetMinAutoExposureFramerate( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("tf_strength"), 			[this]( const nlohmann::json &paramsIn ){ this->SetTemporalFilterStrength( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("gain_multiplier"), 		[this]( const nlohmann::json &paramsIn ){ this->SetGainMultiplier( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("exp"), 					[this]( const nlohmann::json &paramsIn ){ this->SetExposureMode( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("nf"), 					[this]( const nlohmann::json &paramsIn ){ this->SetNoiseFilterMode( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("wb"), 					[this]( const nlohmann::json &paramsIn ){ this->SetWhiteBalanceMode( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("wdr"), 					[this]( const nlohmann::json &paramsIn ){ this->SetWideDynamicRangeMode( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("zone_exp"), 				[this]( const nlohmann::json &paramsIn ){ this->SetZoneExposure( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &paramsIn ){ this->SetZoneWhiteBalance( paramsIn ); } ) );
+	m_settingsApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this]( const nlohmann::json &paramsIn ){ this->SetPowerLineFrequency( paramsIn ); } ) );
 
 	// Private API
 	m_privateApiMap.insert( std::make_pair( std::string("channel_info"), 		[this](){ this->GetChannelInfo(); } ) );
@@ -175,13 +240,263 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_privateApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 		[this](){ this->GetPowerLineFrequency(); } ) );
 }
 
+bool CVideoChannel::IsCommandSupported( const std::string &commandNameIn )
+{
+	try
+	{
+		json formats = m_api.at( "publicAPI" ).at( commandNameIn ).at( "formats" );
+		
+		// Check to see if this command is supported for this channel's format
+		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
+		{
+			// Format matched, or the command is supported for all format types
+			if( *it == m_settings.at( "format" ) || *it == "all" )
+			{
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	catch( std::exception &e )
+	{
+		std::cerr << "Error checking command support: " << std::string( e.what() );
+		return false;
+	}
+}
+
+bool CVideoChannel::IsSettingSupported( const std::string &settingNameIn )
+{
+	try
+	{
+		json formats = m_api.at( "settingsAPI" ).at( settingNameIn ).at( "formats" );
+		
+		// Check to see if this setting is supported for this channel's format
+		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
+		{
+			// Format matched, or the command is supported for all format types
+			if( *it == m_settings.at( "format" ) || *it == "all" )
+			{
+				return true;
+			}			
+		}
+		
+		return false;
+	}
+	catch( std::exception &e )
+	{
+		std::cerr << "Error checking setting support: " << std::string( e.what() );
+		return false;
+	}
+}
+
+void CVideoChannel::ValidateCommand( const nlohmann::json &commandIn )
+{
+	std::string commandName;
+	
+	try
+	{
+		// Loop through the API definition for the given command and validate the parameters
+		commandName = commandIn.at( "chCmd" ).get<std::string>();
+
+		json apiParams 		= m_api.at( "publicAPI" ).at( commandName ).at( "params" );
+		json commandParams 	= commandIn.at( "params" ); 
+		
+		// Loop through the parameter definitions for this command in the API and validate them
+		for( json::iterator it = commandParams.begin(); it != commandParams.end(); ++it ) 
+		{
+			const std::string paramName( it.key() );
+			json apiParam = apiParams.at( paramName );
+			
+			try
+			{
+				ValidateParameterType( apiParam, it.value() );
+			}
+			catch( const std::exception &e )
+			{
+				throw std::runtime_error( "Parameter [" + paramName + "] type did not match API. Expected type: <" + std::string( e.what() ) + ">" );
+			}
+			
+			try
+			{
+				ValidateParameterValue( apiParam, it.value() );
+			}
+			catch( const std::exception &e )
+			{
+				throw std::runtime_error( "Parameter [" + paramName + "] value did not match API . Error raised: " + std::string( e.what() ) );
+			}
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command Invalid: [" + commandName + "]. Reason: " + std::string( e.what() ) );
+	}
+}
+
+void CVideoChannel::ValidateSetting( const std::string &settingNameIn, const nlohmann::json &settingIn )
+{
+	try
+	{
+		if( !IsSettingSupported( settingNameIn ) )
+		{
+			throw std::runtime_error( "Setting not supported for this video format." );
+		}
+		
+		json apiParams 		= m_api.at( "settingsAPI" ).at( settingNameIn ).at( "params" );
+		json settingParams 	= settingIn.at( "params" );
+		
+		// Loop through the parameter definitions for this command in the API and validate them
+		for( json::iterator it = settingParams.begin(); it != settingParams.end(); ++it ) 
+		{
+			const std::string paramName( it.key() );
+			json apiParam = apiParams.at( paramName );
+			
+			try
+			{
+				ValidateParameterType( apiParam, it.value() );
+			}
+			catch( const std::exception &e )
+			{
+				throw std::runtime_error( "Parameter [" + paramName + "] type did not match API. Expected type: <" + std::string( e.what() ) + ">" );
+			}
+			
+			try
+			{
+				ValidateParameterValue( apiParam, it.value() );
+			}
+			catch( const std::exception &e )
+			{
+				throw std::runtime_error( "Parameter [" + paramName + "] value did not match API . Error raised: " + std::string( e.what() ) );
+			}
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Setting Invalid: [" + settingNameIn + "]. Reason: " + std::string( e.what() ) );
+	}
+}
+
+void CVideoChannel::ValidateParameterType( const nlohmann::json &paramApiIn, const nlohmann::json &paramIn )
+{
+	const std::string type( paramApiIn.at( "type" ).get<std::string>() );
+	
+	if( type == "object" )
+	{
+		if( paramIn.is_object() == false )
+		{
+			throw std::runtime_error( type );
+		}
+	}
+	else if( type == "int" || type == "float" )
+	{
+		if( paramIn.is_number() == false )
+		{
+			throw std::runtime_error( type );
+		}
+	}
+	else if( type == "boolean" )
+	{
+		if( paramIn.is_boolean() == false )
+		{
+			throw std::runtime_error( type );
+		}
+	}
+	else if( type == "string" )
+	{
+		if( paramIn.is_object() == false )
+		{
+			throw std::runtime_error( type );
+		}
+	}
+}
+
+void CVideoChannel::ValidateParameterValue( const nlohmann::json &paramApiIn, const nlohmann::json &paramIn )
+{
+	const std::string type( paramApiIn.at( "type" ).get<std::string>() );
+	
+	if( type == "object" )
+	{
+		// No way to validate
+	}
+	else if( type == "int" || type == "float" )
+	{
+		// Make sure value is within min and max
+		if( paramIn < paramApiIn.at( "min" ) || paramIn > paramApiIn.at( "max" ) )
+		{
+			throw std::runtime_error( "Out of range" );
+		}
+	}
+	else if( type == "boolean" )
+	{
+		// No need to validate
+	}
+	else if( type == "string" )
+	{
+		try
+		{
+			json options = paramApiIn.at( "options" );
+			
+			// Check to see if the passed in option matches a valid option
+			if ( std::none_of( options.begin(), options.end(), [ paramIn ]( const json &option ){ return option == paramIn; } ) )
+			{
+				throw std::runtime_error( "Invalid option: " + paramIn.get<std::string>() );
+			}
+		}
+		catch( const std::exception &e )
+		{
+			// Options field wasn't present. Add further string validation here if necessary
+		}
+	}
+}
+
+
 ///////////////////////////////////////
-// Public channel API
+// Public API
 ///////////////////////////////////////
 
 // General
-void CVideoChannel::StartVideo( const nlohmann::json &commandIn )
+void CVideoChannel::PublishSettings( const nlohmann::json &paramsIn )
+{	
+	json settings = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "settings", m_settings }
+	};
+	
+	m_pStatusPublisher->EmitChannelSettings( settings );
+}
+
+void CVideoChannel::PublishHealthStats( const nlohmann::json &paramsIn )
 {
+	json health = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "stats", 
+			{
+				{ "fps", (float)m_muxer.m_fps },
+				{ "droppedFrames", (int)m_muxer.m_droppedFrames },
+				{ "latency_us", (int)m_muxer.m_latency_us }
+			}
+		}
+	};
+	
+	m_pStatusPublisher->EmitChannelHealthStats( health );
+}
+
+void CVideoChannel::PublishAPI( const nlohmann::json &paramsIn )
+{	
+	json api = 
+	{
+		{ "chNum", (uint32_t)m_channel },
+		{ "api", m_api }
+	};
+	
+	m_pStatusPublisher->EmitChannelSettings( api );
+}
+
+void CVideoChannel::StartVideo( const nlohmann::json &paramsIn )
+{
+	// TODO: Eventually, save this in default settings
 	mxuvc_video_set_vui( m_channel, 1 );
 	mxuvc_video_set_pict_timing( m_channel, 1);
 	
@@ -191,7 +506,7 @@ void CVideoChannel::StartVideo( const nlohmann::json &commandIn )
 	}
 }
 
-void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
+void CVideoChannel::StopVideo( const nlohmann::json &paramsIn )
 {
 	// Clear the video buffer
 	m_muxer.m_inputBuffer.Clear();
@@ -202,62 +517,7 @@ void CVideoChannel::StopVideo( const nlohmann::json &commandIn )
 	}
 }
 
-void CVideoChannel::SetMultipleSettings( const nlohmann::json &commandIn )
-{
-	// cmd : chCmd
-	// ch: x
-	// chCmd: SetMultipleSettings
-	// value: { object with all settings } == commandIn
-	// 	key (setting name): { value ( setting parameters ) }
-	
-	for (json::const_iterator it = commandIn.begin(); it != commandIn.end(); ++it) 
-	{
-		try
-		{
-			// Call specified channel command with appropriate API function using passed in value
-			m_publicApiMap.at( it.key() )( it.value() );
-		}
-		catch( const std::exception &e )
-		{
-			cerr << "Failed to set parameter in group: " << it.key();
-		}
-	}
-}
-
-// "value": 1-30
-void CVideoChannel::SetFramerate( const nlohmann::json &commandIn )
-{
-	try
-	{
-		if( mxuvc_video_set_framerate( m_channel, commandIn.get<uint32_t>() ) )
-		{
-			throw std::runtime_error( "MXUVC Failure" );
-		}
-	}
-	catch( const std::exception &e )
-	{
-		throw std::runtime_error( "Command failed: SetFramerate[" + m_channelString + "]: " + e.what() );
-	}
-}
-
-// "value": 100000-2000000
-void CVideoChannel::SetBitrate( const nlohmann::json &commandIn )
-{
-	try
-	{
-		if( mxuvc_video_set_bitrate( m_channel, commandIn.get<uint32_t>() ) )
-		{
-			throw std::runtime_error( "MXUVC Failure" );
-		}
-	}
-	catch( const std::exception &e )
-	{
-		throw std::runtime_error( "Command failed: SetBitrate[" + m_channelString + "]: " + e.what() );
-	}
-}
-
-// H264
-void CVideoChannel::ForceIFrame( const nlohmann::json &commandIn )
+void CVideoChannel::ForceIFrame( const nlohmann::json &paramsIn )
 {
 	if( mxuvc_video_force_iframe( m_channel ) )
 	{
@@ -265,45 +525,109 @@ void CVideoChannel::ForceIFrame( const nlohmann::json &commandIn )
 	}
 }
 
-// "value": 0-maxint
-void CVideoChannel::SetGOPLength( const nlohmann::json &commandIn )
+void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
+{	
+	// paramsIn format:
+	// { 
+	//		<setting1>: <setting1_params>,
+	//		<setting2>: <setting2_params>,
+	//		<settingX>: <settingX_params>
+	// }
+	
+	// settingX_params format:
+	// { 
+	//		<param1>: <value1>,
+	//		<param2>: <value2>
+	//		<paramX>: <valueX>
+	// }
+	
+	for( json::const_iterator it = paramsIn.begin(); it != paramsIn.end(); ++it ) 
+	{
+		try
+		{
+			// Validate setting
+			ValidateSetting( it.key(), it.value() );
+			
+			// Call specified channel command with appropriate API function using passed in value
+			m_publicApiMap.at( it.key() )( it.value() );
+		}
+		catch( const std::exception &e )
+		{
+			cerr << "Failed to apply setting: " << it.key();
+		}
+	}
+}
+
+///////////////////////////////////////
+// Settings API
+///////////////////////////////////////
+
+void CVideoChannel::SetFramerate( const nlohmann::json &paramsIn )
+{
+	try
+	{
+		if( mxuvc_video_set_framerate( m_channel, paramsIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetFramerate[" + m_channelString + "]: " + std::string( e.what() ) );
+	}
+}
+
+void CVideoChannel::SetBitrate( const nlohmann::json &paramsIn )
+{
+	try
+	{
+		if( mxuvc_video_set_bitrate( m_channel, paramsIn.get<uint32_t>() ) )
+		{
+			throw std::runtime_error( "MXUVC Failure" );
+		}
+	}
+	catch( const std::exception &e )
+	{
+		throw std::runtime_error( "Command failed: SetBitrate[" + m_channelString + "]: " + std::string( e.what() ) );
+	}
+}
+
+void CVideoChannel::SetGOPLength( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		
-		if( mxuvc_video_set_goplen( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_goplen( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetGOPLength[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetGOPLength[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-4
-void CVideoChannel::SetGOPHierarchy( const nlohmann::json &commandIn )
+void CVideoChannel::SetGOPHierarchy( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gop_hierarchy_level( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_gop_hierarchy_level( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetGOPHierarchy[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetGOPHierarchy[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": "baseline" | "main" | "high"
-void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
+void CVideoChannel::SetAVCProfile( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		std::string temp = commandIn.get<std::string>();
+		std::string temp = paramsIn.get<std::string>();
 		video_profile_t profile;
 		
 		if( temp == "baseline" )
@@ -330,117 +654,109 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetAVCProfile[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetAVCProfile[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 10-52
-void CVideoChannel::SetAVCLevel( const nlohmann::json &commandIn )
+void CVideoChannel::SetAVCLevel( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_avc_level( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_avc_level( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetAVCLevel[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetAVCLevel[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-2000
-void CVideoChannel::SetMaxNALSize( const nlohmann::json &commandIn )
+void CVideoChannel::SetMaxNALSize( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_maxnal( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_maxnal( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetMaxNALSize[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetMaxNALSize[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": true | false
-void CVideoChannel::SetVUI( const nlohmann::json &commandIn )
+void CVideoChannel::SetVUI( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_vui( m_channel, commandIn.get<bool>() ) )
+		if( mxuvc_video_set_vui( m_channel, paramsIn.get<bool>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: EnableVUI[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: EnableVUI[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": true | false
-void CVideoChannel::SetPictTiming( const nlohmann::json &commandIn )
+void CVideoChannel::SetPictTiming( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_pict_timing( m_channel, commandIn.get<bool>() ) )
+		if( mxuvc_video_set_pict_timing( m_channel, paramsIn.get<bool>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: EnablePictTiming[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: EnablePictTiming[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-64000
-void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &commandIn )
+void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_max_framesize( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_max_framesize( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetMaxIFrameSize[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetMaxIFrameSize[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// MJPEG
-// "value": 0-10000
-void CVideoChannel::SetCompressionQuality( const nlohmann::json &commandIn )
+void CVideoChannel::SetCompressionQuality( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_compression_quality( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_compression_quality( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetCompressionQuality[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetCompressionQuality[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// --------
-// Sensor
-// --------
+// ----------------
+// Sensor Settings
+// ----------------
 
-// "value": true | false
-void CVideoChannel::SetFlipVertical( const nlohmann::json &commandIn )
+void CVideoChannel::SetFlipVertical( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		video_flip_t flip = ( commandIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+		video_flip_t flip = ( paramsIn.get<bool>() ? FLIP_ON : FLIP_OFF );
 			
 		if( mxuvc_video_set_flip_vertical( m_channel, flip ) )
 		{
@@ -449,16 +765,15 @@ void CVideoChannel::SetFlipVertical( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: EnableFlipVertical[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: EnableFlipVertical[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": true | false
-void CVideoChannel::SetFlipHorizontal( const nlohmann::json &commandIn )
+void CVideoChannel::SetFlipHorizontal( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		video_flip_t flip = ( commandIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+		video_flip_t flip = ( paramsIn.get<bool>() ? FLIP_ON : FLIP_OFF );
 			
 		if( mxuvc_video_set_flip_horizontal( m_channel, flip ) )
 		{
@@ -467,85 +782,76 @@ void CVideoChannel::SetFlipHorizontal( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: EnableFlipHorizontal[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: EnableFlipHorizontal[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-200
-void CVideoChannel::SetContrast( const nlohmann::json &commandIn )
+void CVideoChannel::SetContrast( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_contrast( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_contrast( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetContrast[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetContrast[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-100
-void CVideoChannel::SetZoom( const nlohmann::json &commandIn )
+void CVideoChannel::SetZoom( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_zoom( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_zoom( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetZoom[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetZoom[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": -648000-648000 
-void CVideoChannel::SetPan( const nlohmann::json &commandIn )
+void CVideoChannel::SetPan( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_pan( m_channel, commandIn.get<int32_t>() ) )
+		if( mxuvc_video_set_pan( m_channel, paramsIn.get<int32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetPan[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetPan[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": -648000-648000 
-void CVideoChannel::SetTilt( const nlohmann::json &commandIn )
+void CVideoChannel::SetTilt( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_tilt( m_channel, commandIn.get<int32_t>() ) )
+		if( mxuvc_video_set_tilt( m_channel, paramsIn.get<int32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetTilt[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetTilt[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value":
-// {
-// 	"pan": -648000-648000 
-// 	"tilt": -648000-648000
-// }
-void CVideoChannel::SetPantilt( const nlohmann::json &commandIn )
+void CVideoChannel::SetPantilt( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		int32_t pan = commandIn[ "pan" ].get<int32_t>();
-		int32_t tilt = commandIn[ "tilt" ].get<int32_t>();
+		int32_t pan = paramsIn.at( "pan" ).get<int32_t>();
+		int32_t tilt = paramsIn.at( "tilt" ).get<int32_t>();
 		
 		if( mxuvc_video_set_pantilt( m_channel, pan, tilt ) )
 		{
@@ -554,128 +860,120 @@ void CVideoChannel::SetPantilt( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetPantilt[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetPantilt[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": -255-255
-void CVideoChannel::SetBrightness( const nlohmann::json &commandIn )
+void CVideoChannel::SetBrightness( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_brightness( m_channel, commandIn.get<int16_t>() ) )
+		if( mxuvc_video_set_brightness( m_channel, paramsIn.get<int16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetBrightness[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetBrightness[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": -18000-18000
-void CVideoChannel::SetHue( const nlohmann::json &commandIn )
+void CVideoChannel::SetHue( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_hue( m_channel, commandIn.get<int16_t>() ) )
+		if( mxuvc_video_set_hue( m_channel, paramsIn.get<int16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetHue[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetHue[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 100-300
-void CVideoChannel::SetGamma( const nlohmann::json &commandIn )
+void CVideoChannel::SetGamma( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gamma( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_gamma( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetGamma[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetGamma[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-200
-void CVideoChannel::SetSaturation( const nlohmann::json &commandIn )
+void CVideoChannel::SetSaturation( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_saturation( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_saturation( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetSaturation[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetSaturation[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 1-100
-void CVideoChannel::SetGain( const nlohmann::json &commandIn )
+void CVideoChannel::SetGain( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gain( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_gain( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetGain[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetGain[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 1-100
-void CVideoChannel::SetSharpness( const nlohmann::json &commandIn )
+void CVideoChannel::SetSharpness( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_sharpness( m_channel, commandIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_sharpness( m_channel, paramsIn.get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetSharpness[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetSharpness[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-15
-void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &commandIn )
+void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_max_analog_gain( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_max_analog_gain( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetMaxAnalogGain[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetMaxAnalogGain[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": true | false
-void CVideoChannel::SetHistogramEQ( const nlohmann::json &commandIn )
+void CVideoChannel::SetHistogramEQ( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		histo_eq_t histEq = ( commandIn.get<bool>() ? HISTO_EQ_ON : HISTO_EQ_OFF );
+		histo_eq_t histEq = ( paramsIn.get<bool>() ? HISTO_EQ_ON : HISTO_EQ_OFF );
 		
 		if( mxuvc_video_set_histogram_eq( m_channel, histEq ) )
 		{
@@ -684,86 +982,77 @@ void CVideoChannel::SetHistogramEQ( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetHistogramEQ[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetHistogramEQ[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-2
-void CVideoChannel::SetSharpenFilter( const nlohmann::json &commandIn )
+void CVideoChannel::SetSharpenFilter( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_sharpen_filter( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_sharpen_filter( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetSharpenFilter[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetSharpenFilter[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-30
-void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &commandIn )
+void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_min_exp_framerate( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_min_exp_framerate( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetMinAutoExposureFramerate[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetMinAutoExposureFramerate[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-7
-void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &commandIn )
+void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_tf_strength( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_tf_strength( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetTemporalFilterStrength[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetTemporalFilterStrength[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": 0-256
-void CVideoChannel::SetGainMultiplier( const nlohmann::json &commandIn )
+void CVideoChannel::SetGainMultiplier( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gain_multiplier( m_channel, commandIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_gain_multiplier( m_channel, paramsIn.get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetGainMultiplier[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetGainMultiplier[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value":
-// {
-// 	"sel": "auto" | "manual"
-// 	"value": 0-255
-// }
-void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
+void CVideoChannel::SetExposureMode( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		exp_set_t sel;
 		uint16_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -772,7 +1061,7 @@ void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
 		else if( mode == "manual" )
 		{
 			sel = EXP_MANUAL;
-			value = commandIn[ "value" ].get<uint16_t>();
+			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
 		else
 		{
@@ -786,23 +1075,18 @@ void CVideoChannel::SetExposureMode( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetExposureMode[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetExposureMode[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 		
 }
 
-// "value":
-// {
-// 	"sel": "auto" | "manual"
-// 	"value": 0-100
-// }
-void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
+void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		noise_filter_mode_t sel;
 		uint16_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -811,7 +1095,7 @@ void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
 		else if( mode == "manual" )
 		{
 			sel = NF_MODE_MANUAL;
-			value = commandIn[ "value" ].get<uint16_t>();
+			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
 		else
 		{
@@ -825,22 +1109,17 @@ void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetNoiseFilterMode[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetNoiseFilterMode[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value":
-// {
-// 	"sel": "auto" | "manual"
-// 	"value": 2800-6500
-// }
-void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
+void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		white_balance_mode_t sel;
 		uint16_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -849,7 +1128,7 @@ void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
 		else if( mode == "manual" )
 		{
 			sel = WB_MODE_MANUAL;
-			value = commandIn[ "value" ].get<uint16_t>();
+			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
 		else
 		{
@@ -863,23 +1142,17 @@ void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetWhiteBalanceMode[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetWhiteBalanceMode[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-
-// "value":
-// {
-// 	"sel": "disabled" | "auto" | "manual"
-// 	"value": 0-255
-// }
-void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
+void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		wdr_mode_t sel;
 		uint8_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "disable" )
 		{
@@ -892,7 +1165,7 @@ void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
 		else if( mode == "manual" )
 		{
 			sel = WDR_MANUAL;
-			value = commandIn[ "value" ].get<uint8_t>();
+			value = paramsIn.at( "value" ).get<uint8_t>();
 		}
 		else
 		{
@@ -906,23 +1179,17 @@ void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetWideDynamicRangeMode[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetWideDynamicRangeMode[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-
-// "value":
-// {
-// 	"sel": "enabled" | "disabled"
-// 	"value": 0-62
-// }
-void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
+void CVideoChannel::SetZoneExposure( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		zone_exp_set_t sel;
 		uint16_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "disable" )
 		{
@@ -931,7 +1198,7 @@ void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
 		else if( mode == "enable" )
 		{
 			sel = ZONE_EXP_ENABLE;
-			value = commandIn[ "value" ].get<uint16_t>();
+			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
 		else
 		{
@@ -945,22 +1212,17 @@ void CVideoChannel::SetZoneExposure( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetZoneExposure[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetZoneExposure[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value":
-// {
-// 	"sel": "enabled" | "disabled"
-// 	"value": 0-63
-// }
-void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
+void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		zone_wb_set_t sel;
 		uint16_t value = 0;
-		std::string mode = commandIn[ "sel" ].get<std::string>();
+		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
 		if( mode == "disable" )
 		{
@@ -969,7 +1231,7 @@ void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
 		else if( mode == "enable" )
 		{
 			sel = ZONE_WB_ENABLE;
-			value = commandIn[ "value" ].get<uint16_t>();
+			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
 		else
 		{
@@ -983,17 +1245,16 @@ void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetZoneWhiteBalance[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetZoneWhiteBalance[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
-// "value": "disabled" | "50HZ" | "60HZ"
-void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
+void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &paramsIn )
 {
 	try
 	{
 		pwr_line_freq_mode_t pwrMode;
-		std::string mode = commandIn.get<std::string>();
+		std::string mode = paramsIn.get<std::string>();
 		
 		if( mode == "disabled" )
 		{
@@ -1020,56 +1281,18 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &commandIn )
 	}
 	catch( const std::exception &e )
 	{
-		throw std::runtime_error( "Command failed: SetPowerLineFrequency[" + m_channelString + "]: " + e.what() );
+		throw std::runtime_error( "Command failed: SetPowerLineFrequency[" + m_channelString + "]: " + std::string( e.what() ) );
 	}
 }
 
 ///////////////
-// Get API
+// Private API
 ///////////////
-
-// General
-void CVideoChannel::PublishSettings( const nlohmann::json &commandIn )
-{	
-	json settings = 
-	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "settings", m_settings }
-	};
-	
-	m_pStatusPublisher->EmitChannelSettings( settings );
-}
-
-void CVideoChannel::PublishHealthStats( const nlohmann::json &commandIn )
-{
-	json health = 
-	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "stats", 
-			{
-				{ "fps", (float)m_muxer.m_fps },
-				{ "droppedFrames", (int)m_muxer.m_droppedFrames },
-				{ "latency_us", (int)m_muxer.m_latency_us }
-			}
-		}
-	};
-	
-	m_pStatusPublisher->EmitChannelHealthStats( health );
-}
-
-void CVideoChannel::PublishAPI( const nlohmann::json &commandIn )
-{	
-	json api = 
-	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "api", m_api }
-	};
-	
-	m_pStatusPublisher->EmitChannelSettings( settings );
-}
 
 void CVideoChannel::GetAllSettings()
 {
+	// Loop through private API map and call all functions to retrieve all settings available for this chip
+	// TODO: Eventually, this should use the loaded API to smartly load only what is relevant based on the channel's format
 	for ( auto it = m_privateApiMap.begin(); it != m_privateApiMap.end(); ++it )
 	{
 		try
