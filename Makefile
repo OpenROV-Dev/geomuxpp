@@ -34,9 +34,9 @@ TARGET=geomuxpp
 # TEST_TARGET - the name you want your tests to have (probably test)
 TEST_TARGET=
 
-# GC6500 verison info - Must be defined at command line! Ex: "make -j8 GC6500_VERSION=7_7_13
-# IMPORTANT: Replace dots with underscores: "7.7.13" -> "7_7_13"
-GC6500_VERSION=UNDEFINED
+# GC6500 verison info - Must be defined at command line!
+# Example: make -j8 GC6500_VERSION="7.7.13"
+GC6500_VERSION=""
 
 # --- LIBRARY CONFIGURATION
 
@@ -80,7 +80,7 @@ CC=$(CXX)
 
 # --- C++ compiler flags. We'll add on to these later based on build target.
 #-fPIC
-CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 -D${GC6500_VERSION}
+CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 -DGC6500_VERSION=std::string\(\"$(GC6500_VERSION)\"\)
 
 # --------------------------------------------------------------------------------------------------
 
