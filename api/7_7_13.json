@@ -5,6 +5,7 @@
 		{
 			"formats": [ "all" ],
 			"params": {},
+			"alias": "Publish Settings",
 			"description": "Publishes current settings of the channel."
 		},
 		
@@ -12,6 +13,7 @@
 		{
 			"formats": [ "all" ],
 			"params": {},
+			"alias": "Publish Health",
 			"description": "Publishes current health stats of the channel."
 		},
 		
@@ -19,6 +21,7 @@
 		{
 			"formats": [ "all" ],
 			"params": {},
+			"alias": "Publish API",
 			"description": "Publishes the API of the channel."
 		},
 		
@@ -26,6 +29,7 @@
 		{
 			"formats": [ "all" ],
 			"params": {},
+			"alias": "Start Video",
 			"description": "Starts the video stream."
 		},
 		
@@ -33,6 +37,7 @@
 		{
 			"formats": [ "all" ],
 			"params": {},
+			"alias": "Stop Video",
 			"description": "Stops the video stream."
 		},
 		
@@ -40,6 +45,7 @@
 		{
 			"formats": [ "h264" ],
 			"params": {},
+			"alias": "Force I-Frame",
 			"description": "Forces the channel to output an I-frame."
 		},
 		
@@ -51,9 +57,11 @@
 				"settings":
 				{
 					"type": "object",
+					"alias": "Settings",
 					"description": "Collection of objects describing specific settings. See individual settings API for more info."
 				}
 			},
+			"alias": "Apply Settings",
 			"description": "Allows the user to set multiple settings at once."
 		}
 	},
@@ -73,7 +81,8 @@
 					"max": 60,
 					"description": "Sets max framerate of the channel. Does not guarantee the true framerate."
 				}
-			}
+			},
+			"alias": "Framerate"
 		},
 		
 		"bitrate":
@@ -89,7 +98,8 @@
 					"max": 10000000,
 					"description": "Sets max bitrate of the channel. Does not guarantee the true bitrate."
 				}
-			}
+			},
+			"alias": "Bitrate"
 		},
 		
 		"goplen":
@@ -105,7 +115,8 @@
 					"max": 300,
 					"description": "Number of P-frames between each I-frame."
 				}
-			}
+			},
+			"alias": "GOP Length"
 		},
 		
 		"gop_hierarchy_level":
@@ -116,12 +127,13 @@
 				"value":
 				{
 					"type": "uint32",
-					"unit": "level",
+					"unit": "",
 					"min": 0,
 					"max": 4,
 					"description": "GOP Hierarchy Level."
 				}
-			}
+			},
+			"alias": "GOP Hierarchy Level"
 		},
 		
 		"avc_profile":
@@ -136,7 +148,8 @@
 					"options": [ "baseline", "main", "high" ],
 					"description": "AVC Encoding Profile."
 				}
-			}
+			},
+			"alias": "AVC Encoding Profile"
 		},
 		
 		"avc_level":
@@ -152,7 +165,8 @@
 					"max": 52,
 					"description": "AVC Encoding Level."
 				}
-			}
+			},
+			"alias": "AVC Encoding Level"
 		},
 		
 		"maxnal":
@@ -172,9 +186,11 @@
 					"unit": "bytes",
 					"min": 1,
 					"max": 500000,
+					"alias": "Size",
 					"description": "Max NAL size in bytes."
 				}
-			}
+			},
+			"alias": "Max NAL Unit Size"
 		},
 		
 		"vui":
@@ -187,7 +203,8 @@
 					"type": "bool",
 					"description": "When enabled, includes VUI information in the h264 SPS."
 				}
-			}
+			},
+			"alias": "VUI Information"
 		},
 		
 		"pict_timing":
@@ -200,7 +217,8 @@
 					"type": "bool",
 					"description": "When enabled, includes picture timing information in the h264 SPS."
 				}
-			}
+			},
+			"alias": "Picture Timing Information"
 		},
 		
 		"max_framesize":
@@ -216,7 +234,8 @@
 					"max": 500000,
 					"description": "Max frame size in bytes."
 				}
-			}
+			},
+			"alias": "Max Frame Size"
 		},
 		
 		"compression_quality":
@@ -232,7 +251,8 @@
 					"max": 10000,
 					"description": "Sets MJPEG compression quality in terms of image quantization parameter (QP)."
 				}
-			}
+			},
+			"alias": "Compression Quality"
 		},
 		
 		"flip_vertical":
@@ -245,7 +265,8 @@
 					"type": "bool",
 					"description": "Flips image vertically."
 				}
-			}
+			},
+			"alias": "Flip Vertical"
 		},
 		
 		"flip_horizontal":
@@ -258,7 +279,8 @@
 					"type": "bool",
 					"description": "Flips image horizontally."
 				}
-			}
+			},
+			"alias": "Flip Horizontal"
 		},
 		
 		"contrast":
@@ -274,7 +296,8 @@
 					"max": 200,
 					"description": "Image contrast."
 				}
-			}
+			},
+			"alias": "Contrast"
 		},
 		
 		"zoom":
@@ -290,7 +313,8 @@
 					"max": 100,
 					"description": "Image zoom."
 				}
-			}
+			},
+			"alias": "Zoom"
 		},
 		
 		"pan":
@@ -306,7 +330,8 @@
 					"max": 648000,
 					"description": "Image pan."
 				}
-			}
+			},
+			"alias": "Pan"
 		},
 		
 		"tilt":
@@ -322,7 +347,8 @@
 					"max": 648000,
 					"description": "Image tilt."
 				}
-			}
+			},
+			"alias": "Tilt"
 		},
 		
 		"pantilt":
@@ -336,6 +362,7 @@
 					"unit": "none",
 					"min": -648000,
 					"max": 648000,
+					"alias": "Pan",
 					"description": "Image pan."
 				},
 				
@@ -345,9 +372,11 @@
 					"unit": "none",
 					"min": -648000,
 					"max": 648000,
+					"alias": "Tilt",
 					"description": "Image tilt."
 				}
-			}
+			},
+			"alias": "Pan-Tilt"
 		},
 		
 		"brightness":
@@ -363,7 +392,8 @@
 					"max": 255,
 					"description": "Image brightness."
 				}
-			}
+			},
+			"alias": "Brightness"
 		},
 		
 		"hue":
@@ -379,7 +409,8 @@
 					"max": 18000,
 					"description": "Image hue."
 				}
-			}
+			},
+			"alias": "Hue"
 		},
 		
 		"gamma":
@@ -395,7 +426,8 @@
 					"max": 300,
 					"description": "Image gamma."
 				}
-			}
+			},
+			"alias": "Gamma"
 		},
 		
 		"saturation":
@@ -411,7 +443,8 @@
 					"max": 200,
 					"description": "Image saturation."
 				}
-			}
+			},
+			"alias": "Saturation"
 		},
 		
 		"gain":
@@ -427,7 +460,8 @@
 					"max": 100,
 					"description": "Image gain."
 				}
-			}
+			},
+			"alias": "Gain"
 		},
 		
 		"sharpness":
@@ -443,7 +477,8 @@
 					"max": 100,
 					"description": "Image sharpness."
 				}
-			}
+			},
+			"alias": "Sharpness"
 		},
 		
 		"max_analog_gain":
@@ -459,7 +494,8 @@
 					"max": 15,
 					"description": "Maximum sensor analog gain in auto exposure algorithm."
 				}
-			}
+			},
+			"alias": "Max Analog Gain"
 		},
 		
 		"histogram_eq":
@@ -472,7 +508,8 @@
 					"type": "bool",
 					"description": "Enable/disable histogram equalization, which gives more contrast to the image."
 				}
-			}
+			},
+			"alias": "Histogram Equalization"
 		},
 		
 		"sharpen_filter":
@@ -488,7 +525,8 @@
 					"max": 2,
 					"description": "Strength of the sharpening filter, higher being stronger."
 				}
-			}
+			},
+			"alias": "Sharpen Filter"
 		},
 		
 		"min_exp_framerate":
@@ -504,7 +542,8 @@
 					"max": 30,
 					"description": "Minimum framerate that the autoexposure algorithm can drop to."
 				}
-			}
+			},
+			"alias": "Minimum Autoexposure Framerate"
 		},
 		
 		"tf_strength":
@@ -524,9 +563,11 @@
 					"unit": "none",
 					"min": 1,
 					"max": 7,
+					"alias": "Strength",
 					"description": "Strength of the temporal filter."
 				}
-			}
+			},
+			"alias": "Temporal Filter"
 		},
 		
 		"gain_multiplier":
@@ -542,7 +583,8 @@
 					"max": 256,
 					"description": "Controls the autoexposure algorithm to adjust the sensor analog gain and exposure based on different lighting conditions."
 				}
-			}
+			},
+			"alias": "Autoexposure Gain Multiplier"
 		},
 		
 		"exp":
@@ -555,6 +597,7 @@
 					"type": "string",
 					"unit": "",
 					"options": [ "auto", "manual" ],
+					"alias": "Mode",
 					"description": "Autoexposure mode."
 				},
 				
@@ -564,9 +607,11 @@
 					"unit": "none",
 					"min": 0,
 					"max": 255,
+					"alias": "Exposure Time",
 					"description": "Exposure time."
 				}
-			}
+			},
+			"alias": "Autoexposure Mode"
 		},
 		
 		"nf":
@@ -579,6 +624,7 @@
 					"type": "string",
 					"unit": "",
 					"options": [ "auto", "manual" ],
+					"alias": "Mode",
 					"description": "Noise filter mode."
 				},
 				
@@ -588,9 +634,11 @@
 					"unit": "none",
 					"min": 0,
 					"max": 100,
+					"alias": "Strength",
 					"description": "Noise filter strength."
 				}
-			}
+			},
+			"alias": "Noise Filter Mode"
 		},
 		
 		"wb":
@@ -603,6 +651,7 @@
 					"type": "string",
 					"unit": "",
 					"options": [ "auto", "manual" ],
+					"alias": "Mode",
 					"description": "White balance mode."
 				},
 				
@@ -612,9 +661,11 @@
 					"unit": "none",
 					"min": 2800,
 					"max": 6500,
+					"alias": "Temperature",
 					"description": "White balance temperature."
 				}
-			}
+			},
+			"alias": "White Balance Mode"
 		},
 		
 		"wdr":
@@ -633,6 +684,7 @@
 					"type": "string",
 					"unit": "",
 					"options": [ "auto", "manual" ],
+					"alias": "Mode",
 					"description": "WDR mode."
 				},
 				
@@ -642,9 +694,11 @@
 					"unit": "none",
 					"min": 0,
 					"max": 255,
+					"alias": "Intensity",
 					"description": "WDR intensity."
 				}
-			}
+			},
+			"alias": "Wide Dynamic Range Mode"
 		},
 		
 		"zone_exp":
@@ -664,9 +718,11 @@
 					"unit": "none",
 					"min": 0,
 					"max": 62,
+					"alias": "Zone",
 					"description": "Zone value."
 				}
-			}
+			},
+			"alias": "Zonal Exposure"
 		},
 		
 		"zone_wb":
@@ -686,9 +742,11 @@
 					"unit": "none",
 					"min": 0,
 					"max": 63,
+					"alias": "Zone",
 					"description": "Zone value."
 				}
-			}
+			},
+			"alias": "Zonal White Balance"
 		},
 		
 		"pwr_line_freq":
@@ -707,9 +765,11 @@
 					"type": "string",
 					"unit": "",
 					"options": [ "50HZ", "60HZ" ],
+					"alias": "Frequency",
 					"description": "Power line frequency of the operating region. Sensor exposure value under the auto-exposure algorithm will be adjusted to avoid flickering caused by power level oscillation."
 				}
-			}
+			},
+			"alias": "Power Line Frequency Compensation"
 		}
 	}
 }
