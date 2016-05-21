@@ -19,6 +19,12 @@ CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextI
 	, m_pContext( contextIn )
 	, m_pStatusPublisher( publisherIn )
 {
+	// Make sure a GC6500 SDK version was defined
+	if( GC6500_VERSION == "" )
+	{
+		throw std::runtime_error( "No GC6500 SDK version defined! Cannot safely interact with the camera without knowing the API version!" );
+	}
+	
 	// Initialize libavcodec, and register all codecs and formats. We only want to do this once.
 	av_register_all();
 	
