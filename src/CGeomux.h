@@ -5,7 +5,6 @@
 
 #include "CApp.h"
 #include "CCommandSubscriber.h"
-#include "CStatusPublisher.h"
 #include "CGC6500.h"
 
 class CGeomux : public CApp
@@ -23,7 +22,6 @@ private:
 	
 	std::string					m_cameraOffset;
 	CCommandSubscriber			m_commandSubscriber;
-	CStatusPublisher			m_statusPublisher;
 	CGC6500 					m_gc6500;
 	
 	// Methods

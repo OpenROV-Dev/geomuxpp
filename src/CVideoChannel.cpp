@@ -6,19 +6,19 @@
 #include <algorithm>
 
 #include "CVideoChannel.h"
-#include "CStatusPublisher.h"
 #include "GC6500_API.h"
 
 using namespace std;
 using json = nlohmann::json;
 
-CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn )
+CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn )
 	: m_channel( channelIn )
 	, m_cameraString( cameraOffsetIn )
 	, m_channelString( std::to_string( (int)m_channel ) )
-	, m_endpoint( std::string( "ipc:///tmp/geomux_video" + m_cameraString + "_" + m_channelString + ".ipc" ) )
-	, m_pStatusPublisher( publisherIn )
-	, m_muxer( contextIn, m_endpoint, EVideoFormat::UNKNOWN )
+	, m_eventEndpoint( std::string( "ipc:///tmp/geomux_event" + m_cameraString + "_" + m_channelString + ".ipc" ) )
+	, m_videoEndpoint( std::string( "ipc:///tmp/geomux_video" + m_cameraString + "_" + m_channelString + ".ipc" ) )
+	, m_eventEmitter( contextIn, m_eventEndpoint )
+	, m_muxer( contextIn, m_videoEndpoint, EVideoFormat::UNKNOWN )
 {
 	// Map command strings to API
 	RegisterAPIFunctions();
@@ -37,23 +37,19 @@ CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t
 	{
 		throw std::runtime_error( "Failed to register video callback!" );
 	}
-	
-	// Announce channel has come online and is ready to use
-	m_pStatusPublisher->EmitChannelRegistration( (uint32_t)m_channel, m_endpoint, true );
-	
-	// Publish API for channel
-	PublishAPI( json("") );
-	
-	// Publish settings for channel
-	PublishSettings( json("") );
 }
 
 CVideoChannel::~CVideoChannel()
 {
-	cout << "Cleaning up CVideoChannel" << endl;
+}
+
+void CVideoChannel::Initialize()
+{
+	// Publish API for channel
+	ReportAPI( json("") );
 	
-	// Announce channel has gone offline
-	m_pStatusPublisher->EmitChannelRegistration( (uint32_t)m_channel, m_endpoint, false );
+	// Publish settings for channel
+	ReportSettings( json("") );
 }
 
 
@@ -155,9 +151,9 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_publicApiMap.insert( std::make_pair( std::string("video_start"), 				[this]( const nlohmann::json &paramsIn ){ this->StartVideo( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("video_stop"), 				[this]( const nlohmann::json &paramsIn ){ this->StopVideo( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &paramsIn ){ this->ForceIFrame( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &paramsIn ){ this->PublishSettings( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 			[this]( const nlohmann::json &paramsIn ){ this->PublishHealthStats( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 				[this]( const nlohmann::json &paramsIn ){ this->PublishAPI( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &paramsIn ){ this->ReportSettings( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 			[this]( const nlohmann::json &paramsIn ){ this->ReportHealth( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 				[this]( const nlohmann::json &paramsIn ){ this->ReportAPI( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("apply_settings"),			[this]( const nlohmann::json &paramsIn ){ this->ApplySettings( paramsIn ); } ) );
 	
 	// Settings API
@@ -199,7 +195,7 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_settingsApiMap.insert( std::make_pair( std::string("zone_wb"), 				[this]( const nlohmann::json &paramsIn ){ this->SetZoneWhiteBalance( paramsIn ); } ) );
 	m_settingsApiMap.insert( std::make_pair( std::string("pwr_line_freq"), 			[this]( const nlohmann::json &paramsIn ){ this->SetPowerLineFrequency( paramsIn ); } ) );
 
-	// Private API
+	// Private API - For convenience of being able to loop through all possible settings and get their current values
 	m_privateApiMap.insert( std::make_pair( std::string("channel_info"), 		[this](){ this->GetChannelInfo(); } ) );
 	m_privateApiMap.insert( std::make_pair( std::string("framerate"), 			[this](){ this->GetFramerate(); } ) );
 	m_privateApiMap.insert( std::make_pair( std::string("bitrate"), 			[this](){ this->GetBitrate(); } ) );
@@ -455,43 +451,27 @@ void CVideoChannel::ValidateParameterValue( const nlohmann::json &paramApiIn, co
 ///////////////////////////////////////
 
 // General
-void CVideoChannel::PublishSettings( const nlohmann::json &paramsIn )
+void CVideoChannel::ReportSettings( const nlohmann::json &paramsIn )
 {	
-	json settings = 
-	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "settings", m_settings }
-	};
-	
-	m_pStatusPublisher->EmitChannelSettings( settings );
+	// Report current value of all settings for this channel
+	m_eventEmitter.Emit( "settings_update", m_settings );
 }
 
-void CVideoChannel::PublishHealthStats( const nlohmann::json &paramsIn )
+void CVideoChannel::ReportHealth( const nlohmann::json &paramsIn )
 {
 	json health = 
 	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "stats", 
-			{
-				{ "fps", (float)m_muxer.m_fps },
-				{ "droppedFrames", (int)m_muxer.m_droppedFrames },
-				{ "latency_us", (int)m_muxer.m_latency_us }
-			}
-		}
+		{ "fps", (float)m_muxer.m_fps },
+		{ "droppedFrames", (int)m_muxer.m_droppedFrames },
+		{ "latency_us", (int)m_muxer.m_latency_us }
 	};
 	
-	m_pStatusPublisher->EmitChannelHealthStats( health );
+	m_eventEmitter.Emit( "health", health );
 }
 
-void CVideoChannel::PublishAPI( const nlohmann::json &paramsIn )
+void CVideoChannel::ReportAPI( const nlohmann::json &paramsIn )
 {	
-	json api = 
-	{
-		{ "chNum", (uint32_t)m_channel },
-		{ "api", m_api }
-	};
-	
-	m_pStatusPublisher->EmitChannelSettings( api );
+	m_eventEmitter.Emit( "api", m_api );
 }
 
 void CVideoChannel::StartVideo( const nlohmann::json &paramsIn )
@@ -504,17 +484,21 @@ void CVideoChannel::StartVideo( const nlohmann::json &paramsIn )
 	{
 		throw std::runtime_error( "Command failed: StartVideo[" + m_channelString + "]: MXUVC failure" );
 	}
+	
+	m_eventEmitter.Emit( "video_started" );
 }
 
 void CVideoChannel::StopVideo( const nlohmann::json &paramsIn )
 {
-	// Clear the video buffer
+	// Clear the video buffer so it is fresh when video is started again
 	m_muxer.m_inputBuffer.Clear();
 	
 	if( mxuvc_video_stop( m_channel ) )
 	{
 		throw std::runtime_error( "Command failed: StopVideo[" + m_channelString + "]: MXUVC failure" );
 	}
+	
+	m_eventEmitter.Emit( "video_stopped" );
 }
 
 void CVideoChannel::ForceIFrame( const nlohmann::json &paramsIn )
@@ -541,6 +525,8 @@ void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
 	//		<paramX>: <valueX>
 	// }
 	
+	json update;
+	
 	for( json::const_iterator it = paramsIn.begin(); it != paramsIn.end(); ++it ) 
 	{
 		try
@@ -550,12 +536,18 @@ void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
 			
 			// Call specified channel command with appropriate API function using passed in value
 			m_publicApiMap.at( it.key() )( it.value() );
+			
+			// If we didn't throw, the update was successful. Add to our update
+			update[ it.key() ] = m_settings[ it.key() ];
 		}
 		catch( const std::exception &e )
 		{
 			cerr << "Failed to apply setting: " << it.key();
 		}
 	}
+	
+	// Issue update for all changed settings
+	m_eventEmitter.Emit( "settings_update", update );
 }
 
 ///////////////////////////////////////
@@ -566,10 +558,12 @@ void CVideoChannel::SetFramerate( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_framerate( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_framerate( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetFramerate();
 	}
 	catch( const std::exception &e )
 	{
@@ -581,10 +575,12 @@ void CVideoChannel::SetBitrate( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_bitrate( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_bitrate( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetBitrate();
 	}
 	catch( const std::exception &e )
 	{
@@ -596,11 +592,12 @@ void CVideoChannel::SetGOPLength( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		
-		if( mxuvc_video_set_goplen( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_goplen( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetGOPLength();
 	}
 	catch( const std::exception &e )
 	{
@@ -612,10 +609,12 @@ void CVideoChannel::SetGOPHierarchy( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gop_hierarchy_level( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_gop_hierarchy_level( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetGOPHierarchy();
 	}
 	catch( const std::exception &e )
 	{
@@ -627,7 +626,7 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		std::string temp = paramsIn.get<std::string>();
+		std::string temp = paramsIn.at( "value" ).get<std::string>();
 		video_profile_t profile;
 		
 		if( temp == "baseline" )
@@ -651,6 +650,8 @@ void CVideoChannel::SetAVCProfile( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetAVCProfile();
 	}
 	catch( const std::exception &e )
 	{
@@ -662,10 +663,12 @@ void CVideoChannel::SetAVCLevel( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_avc_level( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_avc_level( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetAVCLevel();
 	}
 	catch( const std::exception &e )
 	{
@@ -677,10 +680,12 @@ void CVideoChannel::SetMaxNALSize( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_maxnal( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_maxnal( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetMaxNALSize();
 	}
 	catch( const std::exception &e )
 	{
@@ -692,10 +697,12 @@ void CVideoChannel::SetVUI( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_vui( m_channel, paramsIn.get<bool>() ) )
+		if( mxuvc_video_set_vui( m_channel, paramsIn.at( "enabled" ).get<bool>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetVUI();
 	}
 	catch( const std::exception &e )
 	{
@@ -707,10 +714,12 @@ void CVideoChannel::SetPictTiming( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_pict_timing( m_channel, paramsIn.get<bool>() ) )
+		if( mxuvc_video_set_pict_timing( m_channel, paramsIn.at( "enabled" ).get<bool>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetPictTiming();
 	}
 	catch( const std::exception &e )
 	{
@@ -722,10 +731,12 @@ void CVideoChannel::SetMaxIFrameSize( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_max_framesize( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_max_framesize( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetMaxIFrameSize();
 	}
 	catch( const std::exception &e )
 	{
@@ -737,10 +748,12 @@ void CVideoChannel::SetCompressionQuality( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_compression_quality( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_compression_quality( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetCompressionQuality();
 	}
 	catch( const std::exception &e )
 	{
@@ -756,12 +769,14 @@ void CVideoChannel::SetFlipVertical( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		video_flip_t flip = ( paramsIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+		video_flip_t flip = ( paramsIn.at( "enabled" ).get<bool>() ? FLIP_ON : FLIP_OFF );
 			
 		if( mxuvc_video_set_flip_vertical( m_channel, flip ) )
 		{
 			throw std::runtime_error( "Failed to set Flip Vertical on channel: " + m_channelString );
 		}
+		
+		GetFlipVertical();
 	}
 	catch( const std::exception &e )
 	{
@@ -773,12 +788,14 @@ void CVideoChannel::SetFlipHorizontal( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		video_flip_t flip = ( paramsIn.get<bool>() ? FLIP_ON : FLIP_OFF );
+		video_flip_t flip = ( paramsIn.at( "enabled" ).get<bool>() ? FLIP_ON : FLIP_OFF );
 			
 		if( mxuvc_video_set_flip_horizontal( m_channel, flip ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetFlipHorizontal();
 	}
 	catch( const std::exception &e )
 	{
@@ -790,10 +807,12 @@ void CVideoChannel::SetContrast( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_contrast( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_contrast( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetContrast();
 	}
 	catch( const std::exception &e )
 	{
@@ -805,10 +824,12 @@ void CVideoChannel::SetZoom( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_zoom( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_zoom( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetZoom();
 	}
 	catch( const std::exception &e )
 	{
@@ -820,10 +841,12 @@ void CVideoChannel::SetPan( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_pan( m_channel, paramsIn.get<int32_t>() ) )
+		if( mxuvc_video_set_pan( m_channel, paramsIn.at( "value" ).get<int32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetPan();
 	}
 	catch( const std::exception &e )
 	{
@@ -835,10 +858,12 @@ void CVideoChannel::SetTilt( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_tilt( m_channel, paramsIn.get<int32_t>() ) )
+		if( mxuvc_video_set_tilt( m_channel, paramsIn.at( "value" ).get<int32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetTilt();
 	}
 	catch( const std::exception &e )
 	{
@@ -857,6 +882,8 @@ void CVideoChannel::SetPantilt( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetPantilt();
 	}
 	catch( const std::exception &e )
 	{
@@ -868,10 +895,12 @@ void CVideoChannel::SetBrightness( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_brightness( m_channel, paramsIn.get<int16_t>() ) )
+		if( mxuvc_video_set_brightness( m_channel, paramsIn.at( "value" ).get<int16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetBrightness();
 	}
 	catch( const std::exception &e )
 	{
@@ -883,10 +912,12 @@ void CVideoChannel::SetHue( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_hue( m_channel, paramsIn.get<int16_t>() ) )
+		if( mxuvc_video_set_hue( m_channel, paramsIn.at( "value" ).get<int16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetHue();
 	}
 	catch( const std::exception &e )
 	{
@@ -898,10 +929,12 @@ void CVideoChannel::SetGamma( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gamma( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_gamma( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetGamma();
 	}
 	catch( const std::exception &e )
 	{
@@ -913,10 +946,12 @@ void CVideoChannel::SetSaturation( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_saturation( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_saturation( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetSaturation();
 	}
 	catch( const std::exception &e )
 	{
@@ -928,10 +963,12 @@ void CVideoChannel::SetGain( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gain( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_gain( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetGain();
 	}
 	catch( const std::exception &e )
 	{
@@ -943,10 +980,12 @@ void CVideoChannel::SetSharpness( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_sharpness( m_channel, paramsIn.get<uint16_t>() ) )
+		if( mxuvc_video_set_sharpness( m_channel, paramsIn.at( "value" ).get<uint16_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetSharpness();
 	}
 	catch( const std::exception &e )
 	{
@@ -958,10 +997,12 @@ void CVideoChannel::SetMaxAnalogGain( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_max_analog_gain( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_max_analog_gain( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetMaxAnalogGain();
 	}
 	catch( const std::exception &e )
 	{
@@ -973,12 +1014,14 @@ void CVideoChannel::SetHistogramEQ( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		histo_eq_t histEq = ( paramsIn.get<bool>() ? HISTO_EQ_ON : HISTO_EQ_OFF );
+		histo_eq_t histEq = ( paramsIn.at( "enabled" ).get<bool>() ? HISTO_EQ_ON : HISTO_EQ_OFF );
 		
 		if( mxuvc_video_set_histogram_eq( m_channel, histEq ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetHistogramEQ();
 	}
 	catch( const std::exception &e )
 	{
@@ -990,10 +1033,12 @@ void CVideoChannel::SetSharpenFilter( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_sharpen_filter( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_sharpen_filter( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetSharpenFilter();
 	}
 	catch( const std::exception &e )
 	{
@@ -1005,10 +1050,12 @@ void CVideoChannel::SetMinAutoExposureFramerate( const nlohmann::json &paramsIn 
 {
 	try
 	{
-		if( mxuvc_video_set_min_exp_framerate( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_min_exp_framerate( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetMinAutoExposureFramerate();
 	}
 	catch( const std::exception &e )
 	{
@@ -1020,10 +1067,24 @@ void CVideoChannel::SetTemporalFilterStrength( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_tf_strength( m_channel, paramsIn.get<uint32_t>() ) )
+		bool enabled = paramsIn.at( "enabled" ).get<bool>();
+		
+		if( enabled == true )
 		{
-			throw std::runtime_error( "MXUVC Failure" );
+			if( mxuvc_video_set_tf_strength( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
+			{
+				throw std::runtime_error( "MXUVC Failure" );
+			}
 		}
+		else
+		{
+			if( mxuvc_video_set_tf_strength( m_channel, 0 ) )
+			{
+				throw std::runtime_error( "MXUVC Failure" );
+			}
+		}
+		
+		GetTemporalFilterStrength();
 	}
 	catch( const std::exception &e )
 	{
@@ -1035,10 +1096,12 @@ void CVideoChannel::SetGainMultiplier( const nlohmann::json &paramsIn )
 {
 	try
 	{
-		if( mxuvc_video_set_gain_multiplier( m_channel, paramsIn.get<uint32_t>() ) )
+		if( mxuvc_video_set_gain_multiplier( m_channel, paramsIn.at( "value" ).get<uint32_t>() ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetGainMultiplier();
 	}
 	catch( const std::exception &e )
 	{
@@ -1052,7 +1115,7 @@ void CVideoChannel::SetExposureMode( const nlohmann::json &paramsIn )
 	{
 		exp_set_t sel;
 		uint16_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
+		std::string mode = paramsIn.at( "mode" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -1072,6 +1135,8 @@ void CVideoChannel::SetExposureMode( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetExposureMode();
 	}
 	catch( const std::exception &e )
 	{
@@ -1086,7 +1151,7 @@ void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &paramsIn )
 	{
 		noise_filter_mode_t sel;
 		uint16_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
+		std::string mode = paramsIn.at( "mode" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -1106,6 +1171,8 @@ void CVideoChannel::SetNoiseFilterMode( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetNoiseFilterMode();
 	}
 	catch( const std::exception &e )
 	{
@@ -1119,7 +1186,7 @@ void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &paramsIn )
 	{
 		white_balance_mode_t sel;
 		uint16_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
+		std::string mode = paramsIn.at( "mode" ).get<std::string>();
 		
 		if( mode == "auto" )
 		{
@@ -1139,6 +1206,8 @@ void CVideoChannel::SetWhiteBalanceMode( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetWhiteBalanceMode();
 	}
 	catch( const std::exception &e )
 	{
@@ -1152,9 +1221,11 @@ void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &paramsIn )
 	{
 		wdr_mode_t sel;
 		uint8_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
 		
-		if( mode == "disable" )
+		bool enabled = paramsIn.at( "enabled" ).get<bool>();
+		std::string mode = paramsIn.at( "mode" ).get<std::string>();
+		
+		if( enabled == false )
 		{
 			sel = WDR_DISABLE;
 		}
@@ -1176,6 +1247,8 @@ void CVideoChannel::SetWideDynamicRangeMode( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetWideDynamicRangeMode();
 	}
 	catch( const std::exception &e )
 	{
@@ -1189,26 +1262,24 @@ void CVideoChannel::SetZoneExposure( const nlohmann::json &paramsIn )
 	{
 		zone_exp_set_t sel;
 		uint16_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
+		bool enabled = paramsIn.at( "enabled" ).get<bool>();
 		
-		if( mode == "disable" )
+		if( enabled )
 		{
 			sel = ZONE_EXP_DISABLE;
 		}
-		else if( mode == "enable" )
+		else
 		{
 			sel = ZONE_EXP_ENABLE;
 			value = paramsIn.at( "value" ).get<uint16_t>();
-		}
-		else
-		{
-			throw std::runtime_error( "Invalid zone exp mode" );
 		}
 		
 		if( mxuvc_video_set_zone_exp( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetZoneExposure();
 	}
 	catch( const std::exception &e )
 	{
@@ -1222,26 +1293,24 @@ void CVideoChannel::SetZoneWhiteBalance( const nlohmann::json &paramsIn )
 	{
 		zone_wb_set_t sel;
 		uint16_t value = 0;
-		std::string mode = paramsIn.at( "sel" ).get<std::string>();
+		bool enabled = paramsIn.at( "enabled" ).get<bool>();
 		
-		if( mode == "disable" )
+		if( enabled )
 		{
 			sel = ZONE_WB_DISABLE;
 		}
-		else if( mode == "enable" )
+		else
 		{
 			sel = ZONE_WB_ENABLE;
 			value = paramsIn.at( "value" ).get<uint16_t>();
 		}
-		else
-		{
-			throw std::runtime_error( "Invalid zone wb mode" );
-		}
-		
+
 		if( mxuvc_video_set_zone_wb( m_channel, sel, value ) )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetZoneWhiteBalance();
 	}
 	catch( const std::exception &e )
 	{
@@ -1254,9 +1323,11 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &paramsIn )
 	try
 	{
 		pwr_line_freq_mode_t pwrMode;
-		std::string mode = paramsIn.get<std::string>();
 		
-		if( mode == "disabled" )
+		bool enabled = paramsIn.at( "enabled" ).get<bool>();
+		std::string mode = paramsIn.at( "mode" ).get<std::string>();
+		
+		if( enabled == false )
 		{
 			pwrMode = PWR_LINE_FREQ_MODE_DISABLE;
 		}
@@ -1278,6 +1349,8 @@ void CVideoChannel::SetPowerLineFrequency( const nlohmann::json &paramsIn )
 		{
 			throw std::runtime_error( "MXUVC Failure" );
 		}
+		
+		GetPowerLineFrequency();
 	}
 	catch( const std::exception &e )
 	{

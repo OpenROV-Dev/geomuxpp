@@ -4,14 +4,11 @@
 #include <mxuvc.h>
 #include <CpperoMQ/All.hpp>
 #include <json.hpp>
-
 #include <unordered_map>
 #include <functional>
 
+#include "CEventEmitter.h"
 #include "CMuxer.h"
-
-// Forward decs
-class CStatusPublisher;
 
 // Defines
 #define VIDEO_BACKEND "\"v4l2\""
@@ -25,10 +22,11 @@ class CVideoChannel
 {
 public:
 	// Methods
-	CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn );
+	CVideoChannel( const std::string &cameraOffsetIn, video_channel_t channelIn, CpperoMQ::Context *contextIn );
 	virtual ~CVideoChannel();
 
 	bool IsAlive();
+	void Initialize();
 	void HandleMessage( const nlohmann::json &commandIn );
 
 private:
@@ -36,9 +34,10 @@ private:
 	video_channel_t 				m_channel;
 	std::string						m_cameraString;
 	std::string						m_channelString;
-	std::string 					m_endpoint;
+	std::string 					m_eventEndpoint;
+	std::string 					m_videoEndpoint;
 	
-	CStatusPublisher 				*m_pStatusPublisher;
+	CEventEmitter 					m_eventEmitter;
 	
 	nlohmann::json 					m_settings;
 	nlohmann::json 					m_api;
@@ -71,9 +70,9 @@ private:
 	// Action API
 	
 	// Publish commands
-	void PublishSettings( const nlohmann::json &paramsIn );
-	void PublishHealthStats( const nlohmann::json &paramsIn );
-	void PublishAPI( const nlohmann::json &paramsIn );
+	void ReportSettings( const nlohmann::json &paramsIn );
+	void ReportHealth( const nlohmann::json &paramsIn );
+	void ReportAPI( const nlohmann::json &paramsIn );
 	
 	// General
 	void StartVideo( const nlohmann::json &paramsIn );

@@ -3,7 +3,6 @@
 
 #include "CGC6500.h"
 #include "CVideoChannel.h"
-#include "CStatusPublisher.h"
 #include "Utility.h"
 
 extern "C" 
@@ -13,11 +12,14 @@ extern "C"
 }
 
 using namespace std;
+using namespace CpperoMQ;
+using json = nlohmann::json;
 
-CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextIn, CStatusPublisher *publisherIn )
-	: m_deviceOffset( deviceOffsetIn )
-	, m_pContext( contextIn )
-	, m_pStatusPublisher( publisherIn )
+
+CGC6500::CGC6500( const std::string &cameraNameIn, CpperoMQ::Context *contextIn )
+	: m_pContext( contextIn )
+	, m_cameraName( cameraNameIn )
+	, m_cameraRegistrar( contextIn )
 {
 	// Make sure a GC6500 SDK version was defined
 	if( GC6500_VERSION == "" )
@@ -29,15 +31,23 @@ CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextI
 	av_register_all();
 	
 	// Set a custom device offset
-	std::string options( "dev_offset=" + m_deviceOffset + ",v4l_buffers=16" );
+	std::string options( "dev_offset=" + m_cameraName + ",v4l_buffers=16" );
 	
 	// Initialize mxuvc
 	if( mxuvc_video_init( "v4l2", options.c_str() ) )
 	{
-		throw std::runtime_error( "Failed to initialize mxuvc using device offset: " + m_deviceOffset );
+		throw std::runtime_error( "Failed to initialize mxuvc using device offset: " + m_cameraName );
 	}
 	
-	m_gc6500Initialized = true;
+	m_initialized = true;
+	
+	cout << "Camera initialized" << endl;
+	
+	// Registration
+	if( m_cameraRegistrar.RegisterCamera( m_cameraName ) == false )
+	{
+		throw std::runtime_error( "Failed to register camera: " + m_cameraName );
+	}
 	
 	// Create channels
 	CreateChannels();
@@ -45,16 +55,21 @@ CGC6500::CGC6500( const std::string &deviceOffsetIn, CpperoMQ::Context *contextI
 
 CGC6500::~CGC6500()
 {
-	cout << "Cleaning up CGC6500" << endl;
-	
-	if( m_gc6500Initialized )
+	if( m_initialized )
 	{
 		// Deinit mxuvc
 		mxuvc_video_deinit();
 	}
+	
+	try
+	{
+		m_cameraRegistrar.UnregisterCamera( m_cameraName );
+	}
+	catch( const std::exception &e )
+	{
+		cerr << "Error cleaning up gc6500: " << e.what() << endl;
+	}
 }
-
-
 
 void CGC6500::CreateChannels()
 {
@@ -67,13 +82,24 @@ void CGC6500::CreateChannels()
 	}
 	
 	// Create a new CVideoChannel for each detected channel on the camera
-	// TODO: Figure out why other channels arent working
 	for( uint32_t i = 0; i < channelCount; ++i )
-	//for( uint32_t i = 0; i < 1; ++i )
 	{
 		try
 		{
-			m_pChannels.push_back( util::make_unique<CVideoChannel>( m_deviceOffset, (video_channel_t)i , m_pContext, m_pStatusPublisher ) );
+			// Attempt to create channel
+			auto channel( util::make_unique<CVideoChannel>( m_cameraName, (video_channel_t)i , m_pContext ) );
+			
+			m_pChannels.push_back( std::move( channel ) );
+			
+			// Register channel with cockpit
+			if( m_cameraRegistrar.RegisterChannel( m_cameraName, i ) == false )
+			{
+				m_pChannels.pop_back();
+				throw std::runtime_error( "Registration denied" );
+			}
+			
+			// Initialize channel (publish API and current settings)
+			channel->Initialize();
 		}
 		catch( const std::exception &e )
 		{
@@ -81,7 +107,11 @@ void CGC6500::CreateChannels()
 		}
 	}
 	
-	// TODO: Throw here if no channels 
+	// Throw if no channels were created
+	if( m_pChannels.size() == 0 )
+	{
+		throw std::runtime_error( "Failed to initialize any channels on camera: " + m_cameraName );
+	}
 	
 	std::cout << "Channels created: " << m_pChannels.size() << std::endl;
 }
