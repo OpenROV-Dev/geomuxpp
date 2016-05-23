@@ -11,7 +11,7 @@ namespace gc6500
 		
 		"publicAPI":
 		{
-			"publish_settings":
+			"report_settings":
 			{
 				"formats": [ "all" ],
 				"params": {},
@@ -19,7 +19,7 @@ namespace gc6500
 				"description": "Publishes current settings of the channel."
 			},
 			
-			"publish_health":
+			"report_health":
 			{
 				"formats": [ "all" ],
 				"params": {},
@@ -27,7 +27,7 @@ namespace gc6500
 				"description": "Publishes current health stats of the channel."
 			},
 			
-			"publish_api":
+			"report_api":
 			{
 				"formats": [ "all" ],
 				"params": {},

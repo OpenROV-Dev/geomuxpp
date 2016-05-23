@@ -20,14 +20,21 @@ CVideoChannel::CVideoChannel( const std::string &cameraOffsetIn, video_channel_t
 	, m_eventEmitter( contextIn, m_eventEndpoint )
 	, m_muxer( contextIn, m_videoEndpoint, EVideoFormat::UNKNOWN )
 {
+	cout << "Registering API" << endl;
 	// Map command strings to API
 	RegisterAPIFunctions();
+	
+	cout << "Getting all settings" << endl;
 	
 	// Fetch all setting info from the camera. Some is critical (format), most is not.
 	GetAllSettings();
 	
+	cout << "Loading API" << endl;
+	
 	// Load API
 	LoadAPI();
+	
+	cout << "Registering camera cb" << endl;
 	
 	// TODO:
 	// Dynamically create the type of muxer based on the detected video format (h264 vs mjpeg)
@@ -45,11 +52,18 @@ CVideoChannel::~CVideoChannel()
 
 void CVideoChannel::Initialize()
 {
-	// Publish API for channel
-	ReportAPI( json("") );
+	try
+	{
+		// Publish API for channel
+		ReportAPI( json() );
 	
-	// Publish settings for channel
-	ReportSettings( json("") );
+		// Publish settings for channel
+		ReportSettings( json() );
+	}
+	catch( std::exception &e )
+	{
+		cout << "Error initializing channel: " << e.what() << endl;
+	}
 }
 
 
@@ -65,14 +79,22 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 		// 		"params": 	<commandParams>
 		// }
 		
+		cout << "Got command: " << commandIn.dump().c_str() << endl;
+		
 		// Validate Command
 		ValidateCommand( commandIn );
+		
+		
 		
 		const std::string command( commandIn.at( "chCmd" ).get<std::string>() );
 		const json params( commandIn.at( "params" ) );
 		
+		cout << "validated command " << command << endl;
+		
 		// Call specified channel command with specified parameters
 		m_publicApiMap.at( command )( params );
+		
+		cout << "Called command " << command << endl;
 	}
 	catch( const std::exception &e )
 	{
@@ -111,31 +133,44 @@ void CVideoChannel::LoadAPI()
 		
 		m_api[ "version" ] = gc6500::api.at( "version" ).get<std::string>();
 		
-		const std::string format( m_settings.at( "format" ).get<std::string>() );
-		
-		// Iterate public API section and grab relevant API descriptors
-		json publicAPI( gc6500::api.at( "publicAPI" ) );
-		for( json::iterator it = publicAPI.begin(); it != publicAPI.end(); ++it ) 
+		for( json::iterator it = gc6500::api.at( "publicAPI" ).begin(); it != gc6500::api.at( "publicAPI" ).end(); ++it ) 
 		{
+			cout << "Checking support for: " << it.key() << " - ";
+			
 			// Check to see if it is supported for this channel's format
-			if( IsCommandSupported( format ) == true )
+			if( IsCommandSupported( it.key() ) == true )
 			{
 				// Copy the API to the channel's API
 				m_api[ "publicAPI" ][ it.key() ] = it.value();
+				
+				cout << "Success!" << endl;
+			}
+			else
+			{
+				cout << "Fail!" << endl;
 			}
 		}
 		
-		// Iterate settings API section and grab relevant API descriptors
-		json settings( gc6500::api.at( "settingsAPI" ) );
-		for( json::iterator it = settings.begin(); it != settings.end(); ++it ) 
+		// Iterate settings API section and grab relevant API descriptors		
+		for( json::iterator it = gc6500::api.at( "settingsAPI" ).begin(); it != gc6500::api.at( "settingsAPI" ).end(); ++it ) 
 		{
+			cout << "Checking support for: " << it.key() << " - ";
+			
 			// Check to see if it is supported for this channel's format
-			if( IsSettingSupported( format ) == true )
+			if( IsSettingSupported( it.key() ) == true )
 			{
 				// Copy the API to the channel's API
-				m_api[ "settingAPI" ][ it.key() ] = it.value();
+				m_api[ "settingsAPI" ][ it.key() ] = it.value();
+				
+				cout << "Success!" << endl;
+			}
+			else
+			{
+				cout << "Fail!" << endl;
 			}
 		}
+		
+		cout << "api: " << m_api.dump().c_str() << endl;
 	}
 	catch( const std::exception &e )
 	{
@@ -237,10 +272,10 @@ void CVideoChannel::RegisterAPIFunctions()
 }
 
 bool CVideoChannel::IsCommandSupported( const std::string &commandNameIn )
-{
+{	
 	try
 	{
-		json formats = m_api.at( "publicAPI" ).at( commandNameIn ).at( "formats" );
+		json formats = gc6500::api.at( "publicAPI" ).at( commandNameIn ).at( "formats" );
 		
 		// Check to see if this command is supported for this channel's format
 		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
@@ -265,7 +300,7 @@ bool CVideoChannel::IsSettingSupported( const std::string &settingNameIn )
 {
 	try
 	{
-		json formats = m_api.at( "settingsAPI" ).at( settingNameIn ).at( "formats" );
+		json formats = gc6500::api.at( "settingsAPI" ).at( settingNameIn ).at( "formats" );
 		
 		// Check to see if this setting is supported for this channel's format
 		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
@@ -295,8 +330,21 @@ void CVideoChannel::ValidateCommand( const nlohmann::json &commandIn )
 		// Loop through the API definition for the given command and validate the parameters
 		commandName = commandIn.at( "chCmd" ).get<std::string>();
 
-		json apiParams 		= m_api.at( "publicAPI" ).at( commandName ).at( "params" );
+		json apiParams 		= gc6500::api.at( "publicAPI" ).at( commandName ).at( "params" );
 		json commandParams 	= commandIn.at( "params" ); 
+		
+		if( apiParams.empty() == true )
+		{
+			// Nothing to validate
+			return;
+		}
+		else
+		{
+			if( commandParams.empty() )
+			{
+				throw std::runtime_error( "Parameters required, none supplied" );
+			}
+		}
 		
 		// Loop through the parameter definitions for this command in the API and validate them
 		for( json::iterator it = commandParams.begin(); it != commandParams.end(); ++it ) 
@@ -338,8 +386,21 @@ void CVideoChannel::ValidateSetting( const std::string &settingNameIn, const nlo
 			throw std::runtime_error( "Setting not supported for this video format." );
 		}
 		
-		json apiParams 		= m_api.at( "settingsAPI" ).at( settingNameIn ).at( "params" );
+		json apiParams 		= gc6500::api.at( "settingsAPI" ).at( settingNameIn ).at( "params" );
 		json settingParams 	= settingIn.at( "params" );
+		
+		if( apiParams.empty() == true )
+		{
+			// Nothing to validate
+			return;
+		}
+		else
+		{
+			if( settingParams.empty() )
+			{
+				throw std::runtime_error( "Parameters required, none supplied" );
+			}
+		}
 		
 		// Loop through the parameter definitions for this command in the API and validate them
 		for( json::iterator it = settingParams.begin(); it != settingParams.end(); ++it ) 
@@ -486,6 +547,8 @@ void CVideoChannel::StartVideo( const nlohmann::json &paramsIn )
 	}
 	
 	m_eventEmitter.Emit( "video_started" );
+	
+	cout << "started video" << endl;
 }
 
 void CVideoChannel::StopVideo( const nlohmann::json &paramsIn )

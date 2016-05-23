@@ -91,6 +91,8 @@ void CGC6500::CreateChannels()
 			
 			m_pChannels.push_back( std::move( channel ) );
 			
+			cout << "Registering channel " << i << endl;
+			
 			// Register channel with cockpit
 			if( m_cameraRegistrar.RegisterChannel( m_cameraName, i ) == false )
 			{
@@ -98,8 +100,7 @@ void CGC6500::CreateChannels()
 				throw std::runtime_error( "Registration denied" );
 			}
 			
-			// Initialize channel (publish API and current settings)
-			channel->Initialize();
+			cout << "Registered channel " << i << endl;
 		}
 		catch( const std::exception &e )
 		{
@@ -111,6 +112,13 @@ void CGC6500::CreateChannels()
 	if( m_pChannels.size() == 0 )
 	{
 		throw std::runtime_error( "Failed to initialize any channels on camera: " + m_cameraName );
+	}
+	
+	for( auto &channel : m_pChannels )
+	{
+		cout << "Initializing channel " << endl;
+		channel->Initialize();
+		cout << "Initialized channel " << endl;
 	}
 	
 	std::cout << "Channels created: " << m_pChannels.size() << std::endl;

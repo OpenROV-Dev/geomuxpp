@@ -49,7 +49,7 @@ void CGeomux::Update()
 void CGeomux::HandleMessages()
 {
 	try
-	{
+	{		
 		// Get message
 		IncomingMessage msg;
 		
