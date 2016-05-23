@@ -151,9 +151,9 @@ void CVideoChannel::RegisterAPIFunctions()
 	m_publicApiMap.insert( std::make_pair( std::string("video_start"), 				[this]( const nlohmann::json &paramsIn ){ this->StartVideo( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("video_stop"), 				[this]( const nlohmann::json &paramsIn ){ this->StopVideo( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("force_iframe"), 			[this]( const nlohmann::json &paramsIn ){ this->ForceIFrame( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_settings"), 		[this]( const nlohmann::json &paramsIn ){ this->ReportSettings( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_health"), 			[this]( const nlohmann::json &paramsIn ){ this->ReportHealth( paramsIn ); } ) );
-	m_publicApiMap.insert( std::make_pair( std::string("publish_api"), 				[this]( const nlohmann::json &paramsIn ){ this->ReportAPI( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("report_settings"), 			[this]( const nlohmann::json &paramsIn ){ this->ReportSettings( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("report_health"), 			[this]( const nlohmann::json &paramsIn ){ this->ReportHealth( paramsIn ); } ) );
+	m_publicApiMap.insert( std::make_pair( std::string("report_api"), 				[this]( const nlohmann::json &paramsIn ){ this->ReportAPI( paramsIn ); } ) );
 	m_publicApiMap.insert( std::make_pair( std::string("apply_settings"),			[this]( const nlohmann::json &paramsIn ){ this->ApplySettings( paramsIn ); } ) );
 	
 	// Settings API
