@@ -1,5 +1,7 @@
 // Includes
 #include <CpperoMQ/All.hpp>
+#include <cctype>
+#include <algorithm>
 
 #include "CGC6500.h"
 #include "CVideoChannel.h"
@@ -21,6 +23,11 @@ CGC6500::CGC6500( const std::string &cameraNameIn, CpperoMQ::Context *contextIn 
 	, m_cameraName( cameraNameIn )
 	, m_cameraRegistrar( contextIn )
 {
+	if( std::all_of( m_cameraName.begin(), m_cameraName.end(), ::isdigit ) == false )
+	{
+		throw std::runtime_error( "Camera offset must be numeric. Received: " + m_cameraName );
+	}
+	
 	// Make sure a GC6500 SDK version was defined
 	if( GC6500_VERSION == "" )
 	{
