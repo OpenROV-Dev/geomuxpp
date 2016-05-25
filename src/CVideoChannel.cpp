@@ -78,23 +78,15 @@ void CVideoChannel::HandleMessage( const nlohmann::json &commandIn )
 		// 		"chCmd": 	<commandName>
 		// 		"params": 	<commandParams>
 		// }
-		
-		cout << "Got command: " << commandIn.dump().c_str() << endl;
-		
+
 		// Validate Command
 		ValidateCommand( commandIn );
-		
-		
-		
+
 		const std::string command( commandIn.at( "chCmd" ).get<std::string>() );
 		const json params( commandIn.at( "params" ) );
 		
-		cout << "validated command " << command << endl;
-		
 		// Call specified channel command with specified parameters
 		m_publicApiMap.at( command )( params );
-		
-		cout << "Called command " << command << endl;
 	}
 	catch( const std::exception &e )
 	{
@@ -169,8 +161,6 @@ void CVideoChannel::LoadAPI()
 				cout << "Fail!" << endl;
 			}
 		}
-		
-		cout << "api: " << m_api.dump().c_str() << endl;
 	}
 	catch( const std::exception &e )
 	{
@@ -387,7 +377,7 @@ void CVideoChannel::ValidateSetting( const std::string &settingNameIn, const nlo
 		}
 		
 		json apiParams 		= gc6500::api.at( "settingsAPI" ).at( settingNameIn ).at( "params" );
-		json settingParams 	= settingIn.at( "params" );
+		json settingParams 	= settingIn;
 		
 		if( apiParams.empty() == true )
 		{
@@ -405,7 +395,7 @@ void CVideoChannel::ValidateSetting( const std::string &settingNameIn, const nlo
 		// Loop through the parameter definitions for this command in the API and validate them
 		for( json::iterator it = settingParams.begin(); it != settingParams.end(); ++it ) 
 		{
-			const std::string paramName( it.key() );
+			const std::string paramName( it.key() );			
 			json apiParam = apiParams.at( paramName );
 			
 			try
@@ -546,9 +536,7 @@ void CVideoChannel::StartVideo( const nlohmann::json &paramsIn )
 		throw std::runtime_error( "Command failed: StartVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 	
-	m_eventEmitter.Emit( "video_started" );
-	
-	cout << "started video" << endl;
+	m_eventEmitter.Emit( "status", "video_started" );
 }
 
 void CVideoChannel::StopVideo( const nlohmann::json &paramsIn )
@@ -561,7 +549,7 @@ void CVideoChannel::StopVideo( const nlohmann::json &paramsIn )
 		throw std::runtime_error( "Command failed: StopVideo[" + m_channelString + "]: MXUVC failure" );
 	}
 	
-	m_eventEmitter.Emit( "video_stopped" );
+	m_eventEmitter.Emit( "status", "video_stopped" );
 }
 
 void CVideoChannel::ForceIFrame( const nlohmann::json &paramsIn )
@@ -590,7 +578,7 @@ void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
 	
 	json update;
 	
-	for( json::const_iterator it = paramsIn.begin(); it != paramsIn.end(); ++it ) 
+	for( json::const_iterator it = paramsIn.at( "settings" ).begin(); it != paramsIn.at( "settings" ).end(); ++it ) 
 	{
 		try
 		{
@@ -598,14 +586,14 @@ void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
 			ValidateSetting( it.key(), it.value() );
 			
 			// Call specified channel command with appropriate API function using passed in value
-			m_publicApiMap.at( it.key() )( it.value() );
-			
+			m_settingsApiMap.at( it.key() )( it.value() );
+
 			// If we didn't throw, the update was successful. Add to our update
 			update[ it.key() ] = m_settings[ it.key() ];
 		}
 		catch( const std::exception &e )
 		{
-			cerr << "Failed to apply setting: " << it.key();
+			cerr << "Failed to apply setting: " << it.key() << ": " << e.what() << endl;
 		}
 	}
 	
