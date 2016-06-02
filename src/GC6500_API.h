@@ -78,6 +78,56 @@ namespace gc6500
 		
 		"settingsAPI":
 		{
+			"format":
+			{
+				"formats": [ "all" ],
+				"params": 
+				{
+					"value":
+					{
+						"type": "string",
+						"unit": "",
+						"options": [ "h264", "mjpeg" ],
+						"description": "Video stream format."
+					}
+				},
+				"alias": "Video Format"
+			},
+			
+			"width":
+			{
+				"formats": [ "all" ],
+				"params": 
+				{
+					"value":
+					{
+						"type": "uint16",
+						"unit": "px",
+						"min": 800,
+						"max": 1920,
+						"description": "Width of image in pixels."
+					}
+				},
+				"alias": "Width"
+			},
+			
+			"height":
+			{
+				"formats": [ "all" ],
+				"params": 
+				{
+					"value":
+					{
+						"type": "uint16",
+						"unit": "px",
+						"min": 600,
+						"max": 1080,
+						"description": "Height of image in pixels."
+					}
+				},
+				"alias": "Height"
+			},
+			
 			"framerate":
 			{
 				"formats": [ "all" ],
@@ -693,7 +743,7 @@ namespace gc6500
 					{
 						"type": "string",
 						"unit": "",
-						"options": [ "auto", "manual" ],
+						"options": [ "auto", "manual", "disabled" ],
 						"alias": "Mode",
 						"description": "WDR mode."
 					},
@@ -774,7 +824,7 @@ namespace gc6500
 					{
 						"type": "string",
 						"unit": "",
-						"options": [ "50HZ", "60HZ" ],
+						"options": [ "50HZ", "60HZ", "disabled" ],
 						"alias": "Frequency",
 						"description": "Power line frequency of the operating region. Sensor exposure value under the auto-exposure algorithm will be adjusted to avoid flickering caused by power level oscillation."
 					}

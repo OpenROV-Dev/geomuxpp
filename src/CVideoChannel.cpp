@@ -271,7 +271,7 @@ bool CVideoChannel::IsCommandSupported( const std::string &commandNameIn )
 		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
 		{
 			// Format matched, or the command is supported for all format types
-			if( *it == m_settings.at( "format" ) || *it == "all" )
+			if( *it == m_settings.at( "format" ).at( "value" ) || *it == "all" )
 			{
 				return true;
 			}
@@ -296,7 +296,7 @@ bool CVideoChannel::IsSettingSupported( const std::string &settingNameIn )
 		for( json::iterator it = formats.begin(); it != formats.end(); ++it ) 
 		{
 			// Format matched, or the command is supported for all format types
-			if( *it == m_settings.at( "format" ) || *it == "all" )
+			if( *it == m_settings.at( "format" ).at( "value" ) || *it == "all" )
 			{
 				return true;
 			}			
@@ -467,10 +467,13 @@ void CVideoChannel::ValidateParameterValue( const nlohmann::json &paramApiIn, co
 	}
 	else if( type == "int" || type == "float" )
 	{
-		// Make sure value is within min and max
-		if( paramIn < paramApiIn.at( "min" ) || paramIn > paramApiIn.at( "max" ) )
+		// If a min and max are specified, validate the values
+		if( paramApiIn.find( "min" ) != paramApiIn.end() && paramApiIn.find( "max" ) != paramApiIn.end() ) 
 		{
-			throw std::runtime_error( "Out of range" );
+			if( paramIn < paramApiIn.at( "min" ) || paramIn > paramApiIn.at( "max" ) )
+			{
+				throw std::runtime_error( "Out of range" );
+			}
 		}
 	}
 	else if( type == "boolean" )
@@ -505,7 +508,7 @@ void CVideoChannel::ValidateParameterValue( const nlohmann::json &paramApiIn, co
 void CVideoChannel::ReportSettings( const nlohmann::json &paramsIn )
 {	
 	// Report current value of all settings for this channel
-	m_eventEmitter.Emit( "settings_update", m_settings );
+	m_eventEmitter.Emit( "settings", m_settings );
 }
 
 void CVideoChannel::ReportHealth( const nlohmann::json &paramsIn )
@@ -598,7 +601,7 @@ void CVideoChannel::ApplySettings( const nlohmann::json &paramsIn )
 	}
 	
 	// Issue update for all changed settings
-	m_eventEmitter.Emit( "settings_update", update );
+	m_eventEmitter.Emit( "settings", update );
 }
 
 ///////////////////////////////////////
@@ -1451,39 +1454,18 @@ void CVideoChannel::GetChannelInfo()
 		switch( info.format )
 		{
 			case VID_FORMAT_H264_RAW:
-				m_settings[ "format" ] = "h264";
+				m_settings[ "format" ][ "value" ] = "h264";
 				break;
 			case VID_FORMAT_MJPEG_RAW:
-				m_settings[ "format" ] = "mjpeg";
+				m_settings[ "format" ][ "value" ] = "mjpeg";
 				break;
 			default:
 				throw std::runtime_error( "Unsupported video format" );
 				break;
 		}
 		
-		m_settings[ "width" ] 				= info.width;
-		m_settings[ "height" ] 				= info.height;
-		m_settings[ "framerate" ] 			= info.framerate;
-		m_settings[ "goplen" ] 				= info.goplen;
-		m_settings[ "bitrate" ] 			= info.bitrate;
-		m_settings[ "compression_quality" ] = info.compression_quality;
-		
-		// Profile
-		switch( info.profile )
-		{
-			case PROFILE_BASELINE:
-				m_settings[ "profile" ] = "baseline";
-				break;
-			case PROFILE_MAIN:
-				m_settings[ "profile" ] = "main";
-				break;
-			case PROFILE_HIGH:
-				m_settings[ "profile" ] = "high";
-				break;
-			default:
-				m_settings[ "profile" ] = "unknown";
-				break;
-		}
+		m_settings[ "width" ][ "value" ] 	= info.width;
+		m_settings[ "height" ][ "value" ] 	= info.height;
 	}
 }
 
@@ -1497,7 +1479,7 @@ void CVideoChannel::GetFramerate()
 	}
 	else
 	{
-		m_settings[ "framerate" ] = value;
+		m_settings[ "framerate" ][ "value" ] = value;
 	}
 }
 
@@ -1511,7 +1493,7 @@ void CVideoChannel::GetBitrate()
 	}
 	else
 	{
-		m_settings[ "bitrate" ] = value;
+		m_settings[ "bitrate" ][ "value" ] = value;
 	}
 }
 
@@ -1527,7 +1509,7 @@ void CVideoChannel::GetGOPLength()
 	}
 	else
 	{
-		m_settings[ "goplen" ] = value;
+		m_settings[ "goplen" ][ "value" ] = value;
 	}
 }
 
@@ -1541,7 +1523,7 @@ void CVideoChannel::GetGOPHierarchy()
 	}
 	else
 	{
-		m_settings[ "gop_hierarchy_level" ] = value;
+		m_settings[ "gop_hierarchy_level" ][ "value" ] = value;
 	}
 }
 
@@ -1557,16 +1539,16 @@ void CVideoChannel::GetAVCProfile()
 		switch( profile )
 		{
 			case PROFILE_BASELINE:
-				m_settings[ "profile" ] = "baseline";
+				m_settings[ "avc_profile" ][ "value" ] = "baseline";
 				break;
 			case PROFILE_MAIN:
-				m_settings[ "profile" ] = "main";
+				m_settings[ "avc_profile" ][ "value" ] = "main";
 				break;
 			case PROFILE_HIGH:
-				m_settings[ "profile" ] = "high";
+				m_settings[ "avc_profile" ][ "value" ] = "high";
 				break;
 			default:
-				m_settings[ "profile" ] = "unknown";
+				m_settings[ "avc_profile" ] = "unknown";
 				break;
 		}
 	}
@@ -1582,7 +1564,7 @@ void CVideoChannel::GetAVCLevel()
 	}
 	else
 	{
-		m_settings[ "avc_level" ] = value;
+		m_settings[ "avc_level" ][ "value" ] = value;
 	}
 }
 
@@ -1595,8 +1577,9 @@ void CVideoChannel::GetMaxNALSize()
 		throw std::runtime_error( "MXUVC Failure" );
 	}
 	else
-	{
-		m_settings[ "maxnal" ] = value;
+	{	
+		m_settings[ "maxnal" ][ "enabled" ] = ( value != 0 );
+		m_settings[ "maxnal" ][ "value" ] 	= value;
 	}
 }
 
@@ -1610,7 +1593,7 @@ void CVideoChannel::GetVUI()
 	}
 	else
 	{
-		m_settings[ "vui" ] = (bool)value;
+		m_settings[ "vui" ][ "enabled" ] = (bool)value;
 	}
 }
 
@@ -1624,7 +1607,7 @@ void CVideoChannel::GetPictTiming()
 	}
 	else
 	{
-		m_settings[ "pict_timing" ] = (bool)value;
+		m_settings[ "pict_timing" ][ "enabled" ] = (bool)value;
 	}
 }
 
@@ -1638,7 +1621,7 @@ void CVideoChannel::GetMaxIFrameSize()
 	}
 	else
 	{
-		m_settings[ "max_framesize" ] = value;
+		m_settings[ "max_framesize" ][ "value" ] = value;
 	}
 }
 
@@ -1654,7 +1637,7 @@ void CVideoChannel::GetCompressionQuality()
 	}
 	else
 	{
-		m_settings[ "compression_quality" ] = value;
+		m_settings[ "compression_quality" ][ "value" ] = value;
 	}
 }
 
@@ -1668,7 +1651,7 @@ void CVideoChannel::GetFlipVertical()
 	}
 	else
 	{	
-		m_settings[ "flip_vertical" ] = ( flip == FLIP_ON ? true : false );
+		m_settings[ "flip_vertical" ][ "enabled" ] = ( flip == FLIP_ON );
 	}
 }
 
@@ -1681,7 +1664,7 @@ void CVideoChannel::GetFlipHorizontal()
 	}
 	else
 	{	
-		m_settings[ "flip_horizontal" ] = ( flip == FLIP_ON ? true : false );
+		m_settings[ "flip_horizontal" ][ "enabled" ] = ( flip == FLIP_ON );
 	}
 }
 
@@ -1695,7 +1678,7 @@ void CVideoChannel::GetContrast()
 	}
 	else
 	{
-		m_settings[ "contrast" ] = value;
+		m_settings[ "contrast" ][ "value" ] = value;
 	}
 }
 
@@ -1709,7 +1692,7 @@ void CVideoChannel::GetZoom()
 	}
 	else
 	{
-		m_settings[ "zoom" ] = value;
+		m_settings[ "zoom" ][ "value" ] = value;
 	}
 }
 
@@ -1723,7 +1706,7 @@ void CVideoChannel::GetPan()
 	}
 	else
 	{
-		m_settings[ "pan" ] = value;
+		m_settings[ "pan" ][ "value" ] = value;
 	}
 }
 
@@ -1737,7 +1720,7 @@ void CVideoChannel::GetTilt()
 	}
 	else
 	{
-		m_settings[ "tilt" ] = value;
+		m_settings[ "tilt" ][ "value" ] = value;
 	}
 }
 
@@ -1752,8 +1735,8 @@ void CVideoChannel::GetPantilt()
 	}
 	else
 	{
-		m_settings[ "pan" ] = pan;
-		m_settings[ "tilt" ] = tilt;
+		m_settings[ "pan" ][ "value" ] 	= pan;
+		m_settings[ "tilt" ][ "value" ] = tilt;
 	}
 }
 
@@ -1767,7 +1750,7 @@ void CVideoChannel::GetBrightness()
 	}
 	else
 	{
-		m_settings[ "brightness" ] = value;
+		m_settings[ "brightness" ][ "value" ] = value;
 	}
 }
 
@@ -1781,7 +1764,7 @@ void CVideoChannel::GetHue()
 	}
 	else
 	{
-		m_settings[ "hue" ] = value;
+		m_settings[ "hue" ][ "value" ] = value;
 	}
 }
 
@@ -1795,7 +1778,7 @@ void CVideoChannel::GetGamma()
 	}
 	else
 	{
-		m_settings[ "gamma" ] = value;
+		m_settings[ "gamma" ][ "value" ] = value;
 	}
 }
 
@@ -1809,7 +1792,7 @@ void CVideoChannel::GetSaturation()
 	}
 	else
 	{
-		m_settings[ "saturation" ] = value;
+		m_settings[ "saturation" ][ "value" ] = value;
 	}
 }
 
@@ -1823,7 +1806,7 @@ void CVideoChannel::GetGain()
 	}
 	else
 	{
-		m_settings[ "gain" ] = value;
+		m_settings[ "gain" ][ "value" ] = value;
 	}
 }
 
@@ -1837,7 +1820,7 @@ void CVideoChannel::GetSharpness()
 	}
 	else
 	{
-		m_settings[ "sharpness" ] = value;
+		m_settings[ "sharpness" ][ "value" ] = value;
 	}
 }
 
@@ -1851,7 +1834,7 @@ void CVideoChannel::GetMaxAnalogGain()
 	}
 	else
 	{
-		m_settings[ "max_analog_gain" ] = value;
+		m_settings[ "max_analog_gain" ][ "value" ] = value;
 	}
 }
 
@@ -1864,7 +1847,7 @@ void CVideoChannel::GetHistogramEQ()
 	}
 	else
 	{	
-		m_settings[ "histogram_eq" ] = ( histo == HISTO_EQ_ON ? true : false );
+		m_settings[ "histogram_eq" ][ "enabled" ] = ( histo == HISTO_EQ_ON );
 	}
 }
 
@@ -1878,7 +1861,7 @@ void CVideoChannel::GetSharpenFilter()
 	}
 	else
 	{
-		m_settings[ "sharpen_filter" ] = value;
+		m_settings[ "sharpen_filter" ][ "value" ] = value;
 	}
 }
 
@@ -1892,7 +1875,7 @@ void CVideoChannel::GetMinAutoExposureFramerate()
 	}
 	else
 	{
-		m_settings[ "min_exp_framerate" ] = value;
+		m_settings[ "min_exp_framerate" ][ "value" ] = value;
 	}
 }
 
@@ -1906,7 +1889,8 @@ void CVideoChannel::GetTemporalFilterStrength()
 	}
 	else
 	{
-		m_settings[ "tf_strength" ] = value;
+		m_settings[ "tf_strength" ][ "enabled" ] = ( value != 0 );
+		m_settings[ "tf_strength" ][ "value" ] = value;
 	}
 }
 
@@ -1920,7 +1904,7 @@ void CVideoChannel::GetGainMultiplier()
 	}
 	else
 	{
-		m_settings[ "gain_multiplier" ] = value;
+		m_settings[ "gain_multiplier" ][ "value" ] = value;
 	}
 }
 
@@ -1937,15 +1921,17 @@ void CVideoChannel::GetExposureMode()
 		switch( sel )
 		{
 			case EXP_AUTO:
-				m_settings[ "exp" ] = { { "sel", "auto" }, { "value", value } };
+				m_settings[ "exp" ][ "mode" ] = "auto";
 				break;
 			case EXP_MANUAL:
-				m_settings[ "exp" ] = { { "sel", "manual" }, { "value", value } };
+				m_settings[ "exp" ][ "mode" ] = "manual";
 				break;
 			default:
-				m_settings[ "exp" ] = "unknown";
+				m_settings[ "exp" ][ "mode" ] = "unknown";
 				break;
 		}
+		
+		m_settings[ "exp" ][ "value" ] = value;
 	}
 }
 
@@ -1962,15 +1948,17 @@ void CVideoChannel::GetNoiseFilterMode()
 		switch( sel )
 		{
 			case NF_MODE_AUTO:
-				m_settings[ "nf" ] = { { "sel", "auto" }, { "value", value } };
+				m_settings[ "nf" ][ "mode" ] = "auto";
 				break;
 			case NF_MODE_MANUAL:
-				m_settings[ "nf" ] = { { "sel", "manual" }, { "value", value } };
+				m_settings[ "nf" ][ "mode" ] = "manual";
 				break;
 			default:
-				m_settings[ "nf" ] = "unknown";
+				m_settings[ "nf" ][ "mode" ] = "unknown";
 				break;
 		}
+		
+		m_settings[ "nf" ][ "value" ] = value;
 	}
 }
 
@@ -1987,15 +1975,17 @@ void CVideoChannel::GetWhiteBalanceMode()
 		switch( sel )
 		{
 			case WB_MODE_AUTO:
-				m_settings[ "wb" ] = { { "sel", "auto" }, { "value", value } };
+				m_settings[ "wb" ][ "mode" ] = "auto";
 				break;
 			case WB_MODE_MANUAL:
-				m_settings[ "wb" ] = { { "sel", "manual" }, { "value", value } };
+				m_settings[ "wb" ][ "mode" ] = "manual";
 				break;
 			default:
-				m_settings[ "wb" ] = "unknown";
+				m_settings[ "wb" ][ "mode" ] = "unknown";
 				break;
 		}
+		
+		m_settings[ "wb" ][ "value" ] = value;
 	}
 }
 
@@ -2012,18 +2002,24 @@ void CVideoChannel::GetWideDynamicRangeMode()
 		switch( sel )
 		{
 			case WDR_AUTO:
-				m_settings[ "wdr" ] = { { "sel", "auto" }, { "value", value } };
+				m_settings[ "wdr" ][ "mode" ] 		= "auto";
+				m_settings[ "wdr" ][ "enabled" ] 	= true;
 				break;
 			case WDR_MANUAL:
-				m_settings[ "wdr" ] = { { "sel", "manual" }, { "value", value } };
+				m_settings[ "wdr" ][ "mode" ] 		= "manual";
+				m_settings[ "wdr" ][ "enabled" ] 	= true;
 				break;
 			case WDR_DISABLE:
-				m_settings[ "wdr" ] = { { "sel", "disabled" }, { "value", value } };
+				m_settings[ "wdr" ][ "mode" ] 		= "disabled";
+				m_settings[ "wdr" ][ "enabled" ] 	= false;
 				break;
 			default:
-				m_settings[ "wdr" ] = "unknown";
+				m_settings[ "wdr" ][ "mode" ] 		= "unknown";
+				m_settings[ "wdr" ][ "enabled" ] 	= false;
 				break;
 		}
+		
+		m_settings[ "wdr" ][ "value" ] = value;
 	}
 }
 
@@ -2040,15 +2036,17 @@ void CVideoChannel::GetZoneExposure()
 		switch( sel )
 		{
 			case ZONE_EXP_DISABLE:
-				m_settings[ "zone_exp" ] = { { "sel", "disabled" }, { "value", value } };
+				m_settings[ "zone_exp" ][ "enabled" ] 	= false;
 				break;
 			case ZONE_EXP_ENABLE:
-				m_settings[ "zone_exp" ] = { { "sel", "enabled" }, { "value", value } };
+				m_settings[ "zone_exp" ][ "enabled" ] 	= true;
 				break;
 			default:
-				m_settings[ "zone_exp" ] = "unknown";
+				m_settings[ "zone_exp" ][ "enabled" ] 	= false;
 				break;
 		}
+		
+		m_settings[ "zone_exp" ][ "value" ] = value;
 	}
 }
 
@@ -2065,15 +2063,17 @@ void CVideoChannel::GetZoneWhiteBalance()
 		switch( sel )
 		{
 			case ZONE_WB_DISABLE:
-				m_settings[ "zone_wb" ] = { { "sel", "disabled" }, { "value", value } };
+				m_settings[ "zone_wb" ][ "enabled" ] 	= false;
 				break;
 			case ZONE_WB_ENABLE:
-				m_settings[ "zone_wb" ] = { { "sel", "enabled" }, { "value", value } };
+				m_settings[ "zone_wb" ][ "enabled" ] 	= true;
 				break;
 			default:
-				m_settings[ "zone_wb" ] = "unknown";
+				m_settings[ "zone_wb" ][ "enabled" ] 	= false;
 				break;
 		}
+		
+		m_settings[ "zone_wb" ][ "value" ] = value;
 	}
 }
 
@@ -2089,16 +2089,20 @@ void CVideoChannel::GetPowerLineFrequency()
 		switch( mode )
 		{
 			case PWR_LINE_FREQ_MODE_DISABLE:
-				m_settings[ "pwr_line_freq" ] = "disabled";
+				m_settings[ "pwr_line_freq" ][ "mode" ] 	= "disabled";
+				m_settings[ "pwr_line_freq" ][ "enabled" ] 	= false;
 				break;
 			case PWR_LINE_FREQ_MODE_50HZ:
-				m_settings[ "pwr_line_freq" ] = "50HZ";
+				m_settings[ "pwr_line_freq" ][ "mode" ] 	= "50HZ";
+				m_settings[ "pwr_line_freq" ][ "enabled" ] 	= true;
 				break;
 			case PWR_LINE_FREQ_MODE_60HZ:
-				m_settings[ "pwr_line_freq" ] = "60HZ";
+				m_settings[ "pwr_line_freq" ][ "mode" ] 	= "60HZ";
+				m_settings[ "pwr_line_freq" ][ "enabled" ] 	= true;
 				break;
 			default:
-				m_settings[ "pwr_line_freq" ] = "unknown";
+				m_settings[ "pwr_line_freq" ][ "mode" ] 	= "disabled";
+				m_settings[ "pwr_line_freq" ][ "enabled" ] 	= false;
 				break;
 		}
 	}
