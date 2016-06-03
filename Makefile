@@ -1,46 +1,15 @@
 #-------------------------------------------------------------------------------
+# Author:       Charles Cross
+# Date Created: May 21, 2016
 #
-# File:         Makefile
+# Description:  Makefile for the geomuxpp program
 #
-# Author:       Stephen Brennan
-#
-# Date Created: Friday, 17 July 2015
-#
-# Description:  Generic C Makefile
-#
-# This is a generic makefile, suitable for any C programming project.  It comes
-# with several features:
+# Based on Stephen Brennan's generic makefile.  It comes with several features:
 # - Running tests, with Valgrind.
-# - Generation of documentation through Doxygen.  You'll need to provide a
-#   Doxyfile.
+# - Generation of documentation through Doxygen.  You'll need to provide a Doxyfile.
 # - Code coverage reports via gcov.
 # - Build configurations: debug, release, and coverage.
 # - Automatic dependency generation, so you never need to update this file.
-#
-# To use:
-# 1. You should organize your project like this:
-#    src/
-#    |--- code.c
-#    |--- module-1.h
-#    |--- module-1/code.c
-#    \--- module-2/code.c
-#    test/
-#    \--- test-code.c
-#    inc/
-#    \--- public-header.h
-# 2. Fill out the variables labelled CONFIGURATION.
-# 3. Build configurations are: debug, release, coverage.  Run make like this:
-#    make CFG=configuration target
-#    The default target is release, so you can omit it normally.
-# 4. Targets:
-#    - all: makes your main project
-#    - test: makes and runs tests
-#    - doc: builds documentation
-#    - cov: generates code coverage (MUST have CFG=coverage)
-#    - clean: removes object and binary files
-#    - clean_{doc,cov,dep}: removes documentation/coverage/dependencies
-#
-# This code is in the public domain, for anyone to use or modify in any way.
 #
 #-------------------------------------------------------------------------------
 
@@ -51,35 +20,40 @@
 # --- PROJECT CONFIGURATION
 
 # PROJECT_NAME - not actually used.  but what's your project's name?
-PROJECT_NAME = "geomuxpp"
+PROJECT_NAME="geomuxpp"
 
 # PROJECT_TYPE - staticlib, dynamiclib, executable
-PROJECT_TYPE = executable
+PROJECT_TYPE=executable
 
 # PROJECT_MAIN - filename within your source directory that contains main()
-PROJECT_MAIN = main.cpp
+PROJECT_MAIN=main.cpp
 
 # TARGET - the name you want your target to have (bin/release/[whatgoeshere])
-TARGET = geomuxpp
+TARGET=geomuxpp
 
 # TEST_TARGET - the name you want your tests to have (probably test)
-TEST_TARGET =
+TEST_TARGET=
+
+# GC6500 verison info - Must be defined at command line!
+# Example: make -j8 GC6500_VERSION="7.7.13"
+GC6500_VERSION=""
 
 # --- LIBRARY CONFIGURATION
 
 # LDINCLUDES - Include paths for libraries, i.e. '-I/usr/local/include'
-LDINCLUDES = -I/usr/include/geocamera/
+LDINCLUDES=-I/usr/include/geocamera/
 
 # LDLIBPATHS - Lib paths for libraries, i.e. '-L/usr/local/lib'
-LDLIBPATHS = -L/usr/lib/geocamera/
+LDLIBPATHS=-L/usr/lib/geocamera/
 
 # LDFLAGS - Flags to be passed to the linker. Additional options will be added later based on build target
-LDFLAGS = $(LDLIBPATHS)
+LDFLAGS=$(LDLIBPATHS)
 
 # LDLIBS - Which libs to link to, i.e. '-lm' or 'somelib.a'
 #
-#LDLIBS = -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lmxcam -lmxuvc -lpthread 
+#LDLIBS=-lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -lmxcam -lmxuvc -lpthread 
 LDLIBS = -static -lzmq -lmxcam -lmxuvc -lavformat -lavcodec -lavutil -lswresample -lswscale -lx264 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -ldl -lz
+
 # --- INCLUDE CONFIGURATION
 
 # EXTRA_INCLUDES - Any additional files you'd like to include i.e. '-I/usr/local/include'
@@ -107,7 +81,7 @@ CC=$(CXX)
 
 # --- C++ compiler flags. We'll add on to these later based on build target.
 #-fPIC
-CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 
+CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -pedantic -std=c++11 -DGC6500_VERSION=std::string\(\"$(GC6500_VERSION)\"\)
 
 # --------------------------------------------------------------------------------------------------
 

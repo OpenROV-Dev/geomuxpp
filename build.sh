@@ -24,7 +24,7 @@ mkdir -p output/usr/bin
 make clean_all
 
 # Build
-make all
+make all GC6500_VERSION=${GC6500_VERSION}
 
 # Copy bin to output
 cp bin/release/geomuxpp output/usr/bin

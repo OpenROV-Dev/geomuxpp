@@ -14,8 +14,7 @@ CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	: CApp( argCountIn, argsIn )
 	, m_cameraOffset( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ) )
 	, m_commandSubscriber( m_cameraOffset, &m_context )
-	, m_statusPublisher( m_cameraOffset, &m_context )
-	, m_gc6500( m_cameraOffset, &m_context, &m_statusPublisher )
+	, m_gc6500( m_cameraOffset, &m_context )
 {	
 	
 }
@@ -50,7 +49,7 @@ void CGeomux::Update()
 void CGeomux::HandleMessages()
 {
 	try
-	{
+	{		
 		// Get message
 		IncomingMessage msg;
 		
@@ -79,7 +78,6 @@ void CGeomux::HandleMessages()
 	}
 	catch( const std::exception &e )
 	{
-		m_statusPublisher.EmitError( e.what() );
 		cerr << "Error handling message: " << e.what() << endl;
 		return;
 	}
@@ -87,13 +85,11 @@ void CGeomux::HandleMessages()
 
 void CGeomux::Shutdown()
 {
-	m_statusPublisher.EmitStatus( "shuttingDown" );
 	m_quit = true;
 }
 
 void CGeomux::Restart()
 {
-	m_statusPublisher.EmitStatus( "restarting" );
 	m_quit = true;
 	m_restart = true;
 }

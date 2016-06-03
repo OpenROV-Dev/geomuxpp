@@ -348,9 +348,9 @@ void CMuxer::Update()
 				m_latency_us = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::high_resolution_clock::now() - m_frameStats.m_lastWriteTime ).count();
 				m_fps = m_frameStats.m_fps;
 				
-				cout << "Dropped Frames: " << m_droppedFrames << endl;
-				cout << "Latency(us): " << m_latency_us << endl;
-				cout << "Framerate: " << m_fps << endl;
+				//cout << "Dropped Frames: " << m_droppedFrames << endl;
+				//cout << "Latency(us): " << m_latency_us << endl;
+				//cout << "Framerate: " << m_fps << endl;
 				
 				// Cleanup
 				av_packet_unref( &packet );
@@ -496,7 +496,7 @@ int CMuxer::WritePacket( void *muxerIn, uint8_t *avioBufferIn, int bytesAvailabl
 			
 			if( ret )
 			{
-				cout << "Delivered frame over zmq. Bytes: " << bytesAvailableIn << endl;
+				//cout << "Delivered frame over zmq. Bytes: " << bytesAvailableIn << endl;
 				muxer->m_framesDelivered++;
 			}
 			else
