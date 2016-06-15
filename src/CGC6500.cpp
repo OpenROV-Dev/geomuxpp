@@ -152,3 +152,8 @@ void CGC6500::HandleMessage( const nlohmann::json &commandIn )
 		std::cerr << "Error handling message: " << e.what() << std::endl;
 	}
 }
+
+bool CGC6500::IsAlive()
+{
+	return mxuvc_video_alive() == 1;
+}

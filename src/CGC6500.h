@@ -20,6 +20,7 @@ public:
 	virtual ~CGC6500();
 	
 	void HandleMessage( const nlohmann::json &commandIn );
+	bool IsAlive();
 
 private:	
 	// Pointers

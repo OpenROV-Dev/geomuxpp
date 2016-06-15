@@ -15,6 +15,7 @@ CGeomux::CGeomux( int argCountIn, char* argsIn[] )
 	, m_cameraOffset( ( (m_arguments.size() > 1 ) ? m_arguments.at( 1 ) : "0" ) )
 	, m_commandSubscriber( m_cameraOffset, &m_context )
 	, m_gc6500( m_cameraOffset, &m_context )
+	, m_lastExecutionTime( std::chrono::steady_clock::now() )
 {	
 	
 }
@@ -44,6 +45,17 @@ void CGeomux::Run()
 void CGeomux::Update()
 {	
 	HandleMessages();
+	
+	if( ( std::chrono::steady_clock::now() - m_lastExecutionTime ) > std::chrono::seconds( 5 ) )
+	{
+		if( !m_gc6500.IsAlive() )
+		{
+			cerr << "Camera connectivity lost. Shutting down!" << endl;
+			Shutdown();
+		}
+		
+		m_lastExecutionTime = std::chrono::steady_clock::now();
+	}
 }
 
 void CGeomux::HandleMessages()

@@ -2,6 +2,7 @@
 
 // Includes
 #include <CpperoMQ/All.hpp>
+#include <chrono>
 
 #include "CApp.h"
 #include "CCommandSubscriber.h"
@@ -23,6 +24,8 @@ private:
 	std::string					m_cameraOffset;
 	CCommandSubscriber			m_commandSubscriber;
 	CGC6500 					m_gc6500;
+	
+	std::chrono::steady_clock::time_point m_lastExecutionTime;
 	
 	// Methods
 	void Update();
