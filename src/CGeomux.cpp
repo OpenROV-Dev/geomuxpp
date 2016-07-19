@@ -48,6 +48,8 @@ void CGeomux::Update()
 	
 	if( ( std::chrono::steady_clock::now() - m_lastExecutionTime ) > std::chrono::seconds( 5 ) )
 	{
+		cout << "Checking camera liveliness..." << endl;
+		
 		if( !m_gc6500.IsAlive() )
 		{
 			cerr << "Camera connectivity lost. Shutting down!" << endl;
